@@ -66,6 +66,14 @@ module M68kDramController_Verilog (
 		reg  CPU_Dtack_L;											// Dtack back to CPU
 		reg  CPUReset_L;		
 
+		// NOP states 
+		reg [4:0] NOPReturnState;
+		reg [7:0] NopCounter;
+
+		// Refresh stuff 
+		reg[3:0] RefreshCounter; 
+
+
 		// PARAMETERS
 
 		parameter PoweringUp = 5'b00000 ;					// take CKE & CS low during power up phase, address and bank address = dont'care
@@ -80,7 +88,7 @@ module M68kDramController_Verilog (
 	
 		parameter BankActivate = 5'b10011;					// BA0, BA1 should be set to a value, address A11-0 should be value
 		parameter PrechargeSelectBank = 5'b10010;			// A10 should be logic 0, BA0, BA1 should be set to a value, other addreses = don't care
-		parameter PrechargeAllBanks = 5'b10010;			// A10 should be logic 1, BA0, BA1 are dont'care, other addreses = don't care
+		parameter PrechargeAllBanks = 5'b10010;				// A10 should be logic 1, BA0, BA1 are dont'care, other addreses = don't care
 		parameter ModeRegisterSet = 5'b10000;				// A10=0, BA1=0, BA0=0, Address = don't care
 		parameter ExtModeRegisterSet = 5'b10000;			// A10=0, BA1=1, BA0=0, Address = value
 		
@@ -95,7 +103,13 @@ module M68kDramController_Verilog (
 		parameter PrechargingAllBanks = 5'b00011;			// issuing precharge all command after power up
 		
 		// TODO - Add your own states as per your own design
-		
+		parameter GenericNOP 		= 5'b00010; 
+		parameter Refresh 			= 5'b00100; 
+		parameter ProgramMode 		= 5'b00101; 
+		parameter LoadRefreshTimer 	= 5'b00110; 
+		parameter LoadModeRegister 	= 5'b00111; 
+		parameter InitIdle			= 5'b11110; 
+		parameter Idle 				= 5'b11111; 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // General Timer for timing and counting things: Loadable and counts down on each clock then produced a TimerDone signal and stops counting
@@ -197,7 +211,7 @@ module M68kDramController_Verilog (
 // next state and output logic
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////	
 	
-	always@(posedge Clock)
+	always@(*)
 	begin
 	
 	// In Verilog/VHDL - you will recall - that combinational logic (i.e. logic with no storage) is created as long as you
@@ -232,6 +246,7 @@ module M68kDramController_Verilog (
 	
 		if(CurrentState == InitialisingState ) begin
 			TimerValue <= 16'b0000000000001000;					// chose a value equivalent to 100us at 50Mhz clock - you might want to shorten it to somthing small for simulation purposes
+			// TimerValue <= 5000; 
 			TimerLoad_H <= 1 ;										// on next edge of clock, timer will be loaded and start to time out
 			Command <= PoweringUp ;									// clock enable and chip select to the Zentel Dram chip must be held low (disabled) during a power up phase
 			NextState <= WaitingForPowerUpState ;				// once we have loaded the timer, go to a new state where we wait for the 100us to elapse
@@ -240,16 +255,84 @@ module M68kDramController_Verilog (
 		else if(CurrentState == WaitingForPowerUpState) begin
 			Command <= PoweringUp ;									// no DRam clock enable or CS while witing for 100us timer
 			
-			if(TimerDone_H == 1) 								// if timer has timed out i.e. 100us have elapsed
-				NextState <= IssueFirstNOP ;						// take CKE and CS to active and issue a 1st NOP command
+			if(TimerDone_H == 1) begin 								// if timer has timed out i.e. 100us have elapsed
+				NextState <= GenericNOP ;						// take CKE and CS to active and issue a 1st NOP command
+				NopCounter <= 2; 
+				NOPReturnState <= LoadRefreshTimer;
+			end
 			else
 				NextState <= WaitingForPowerUpState ;			// otherwise stay here until power up time delay finished
 		end
+
+		else if(CurrentState == GenericNOP) begin 
+			Command <= NOP; 
+			NopCounter <= NopCounter - 1; 
+			if (NopCounter != 0) begin 
+				NextState <= GenericNOP;
+			end
+			else begin
+				NextState <= NOPReturnState; 
+			end
+		end
 		
-		else if(CurrentState == IssueFirstNOP) begin	 			// issue a valid NOP
-			Command <= NOP ;											// send a valid NOP command to to the dram chip
-			NextState <= PrechargingAllBanks;
-		end		
+		// else if(CurrentState == IssueFirstNOP) begin	 			// issue a valid NOP
+		// 	Command <= NOP ;											// send a valid NOP command to to the dram chip
+		// 	NextState <= PrechargingAllBanks;
+		// end		
+
+		else if(CurrentState == LoadRefreshTimer) begin 
+			RefreshTimerValue <= 375; 					// 7.5us timer at 50MHz
+			RefreshTimerLoad_H <= 1'b1; 
+			RefreshCounter <= 10; 
+			NextState <= PrechargingAllBanks; 
+		end
+
+		else if(CurrentState == PrechargingAllBanks) begin 
+			DramAddress[10] <= 1'b1; 				// Set A10 high
+			Command <= PrechargeAllBanks; 
+
+			NextState <= GenericNOP; 
+			NopCounter <= 1; 
+			NOPReturnState <= InitIdle; 
+		end
+
+		else if(CurrentState == InitIdle) begin 
+			if(RefreshCounter == 0) begin
+				NextState <= LoadModeRegister; 
+			end
+			else begin
+				if (RefreshTimerDone_H) begin 
+					RefreshCounter <= RefreshCounter-1; 
+					Command <= AutoRefresh;
+
+					NextState <= GenericNOP;  
+					NopCounter <= 3; 
+					NOPReturnState <= InitIdle; 
+				end 
+				else begin 
+					NextState <= InitIdle; 
+				end
+			end
+		end
+
+		else if(CurrentState == LoadModeRegister) begin 
+			DramAddress[10] <= 1'b0; 		// Set A10 back to 0 
+			Command <= ModeRegisterSet; 
+
+			NextState <= GenericNOP;  
+			NopCounter <= 3; 
+			NOPReturnState <= Idle; 
+		end
+
+		// else if(CurrentState == Refresh) begin 
+		// 	Command <= AutoRefresh;
+		// end
+
+		else if (CurrentState == Idle) begin 
+			Command <= NOP; 
+			NextState <= Idle; 
+		end
+
 		
 		// add your other states and conditions here
 		
