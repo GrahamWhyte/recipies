@@ -1,0 +1,33 @@
+﻿  StoMifConverterV6.cpp
+c:\m68kv6.0 - 640by480\m68kv6.0 - 800by480 - (verilog) for students\programs\srecord_to_mif_converter\srecord_to_mif_converter\srecord_to_mif_converter\stomifconverterv6.cpp(29): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  c:\program files (x86)\windows kits\10\include\10.0.17763.0\ucrt\stdio.h(208): note: see declaration of 'fopen'
+c:\m68kv6.0 - 640by480\m68kv6.0 - 800by480 - (verilog) for students\programs\srecord_to_mif_converter\srecord_to_mif_converter\srecord_to_mif_converter\stomifconverterv6.cpp(33): warning C4996: 'getch': The POSIX name for this item is deprecated. Instead, use the ISO C and C++ conformant name: _getch. See online help for details.
+  c:\program files (x86)\windows kits\10\include\10.0.17763.0\ucrt\conio.h(453): note: see declaration of 'getch'
+c:\m68kv6.0 - 640by480\m68kv6.0 - 800by480 - (verilog) for students\programs\srecord_to_mif_converter\srecord_to_mif_converter\srecord_to_mif_converter\stomifconverterv6.cpp(37): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  c:\program files (x86)\windows kits\10\include\10.0.17763.0\ucrt\stdio.h(208): note: see declaration of 'fopen'
+c:\m68kv6.0 - 640by480\m68kv6.0 - 800by480 - (verilog) for students\programs\srecord_to_mif_converter\srecord_to_mif_converter\srecord_to_mif_converter\stomifconverterv6.cpp(41): warning C4996: 'getch': The POSIX name for this item is deprecated. Instead, use the ISO C and C++ conformant name: _getch. See online help for details.
+  c:\program files (x86)\windows kits\10\include\10.0.17763.0\ucrt\conio.h(453): note: see declaration of 'getch'
+c:\m68kv6.0 - 640by480\m68kv6.0 - 800by480 - (verilog) for students\programs\srecord_to_mif_converter\srecord_to_mif_converter\srecord_to_mif_converter\stomifconverterv6.cpp(89): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  c:\program files (x86)\windows kits\10\include\10.0.17763.0\ucrt\stdio.h(2263): note: see declaration of 'sscanf'
+c:\m68kv6.0 - 640by480\m68kv6.0 - 800by480 - (verilog) for students\programs\srecord_to_mif_converter\srecord_to_mif_converter\srecord_to_mif_converter\stomifconverterv6.cpp(90): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  c:\program files (x86)\windows kits\10\include\10.0.17763.0\ucrt\stdio.h(2263): note: see declaration of 'sscanf'
+c:\m68kv6.0 - 640by480\m68kv6.0 - 800by480 - (verilog) for students\programs\srecord_to_mif_converter\srecord_to_mif_converter\srecord_to_mif_converter\stomifconverterv6.cpp(95): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  c:\program files (x86)\windows kits\10\include\10.0.17763.0\ucrt\stdio.h(2263): note: see declaration of 'sscanf'
+c:\m68kv6.0 - 640by480\m68kv6.0 - 800by480 - (verilog) for students\programs\srecord_to_mif_converter\srecord_to_mif_converter\srecord_to_mif_converter\stomifconverterv6.cpp(104): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  c:\program files (x86)\windows kits\10\include\10.0.17763.0\ucrt\stdio.h(2263): note: see declaration of 'sscanf'
+c:\m68kv6.0 - 640by480\m68kv6.0 - 800by480 - (verilog) for students\programs\srecord_to_mif_converter\srecord_to_mif_converter\srecord_to_mif_converter\stomifconverterv6.cpp(105): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  c:\program files (x86)\windows kits\10\include\10.0.17763.0\ucrt\stdio.h(2263): note: see declaration of 'sscanf'
+c:\m68kv6.0 - 640by480\m68kv6.0 - 800by480 - (verilog) for students\programs\srecord_to_mif_converter\srecord_to_mif_converter\srecord_to_mif_converter\stomifconverterv6.cpp(113): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  c:\program files (x86)\windows kits\10\include\10.0.17763.0\ucrt\stdio.h(2263): note: see declaration of 'sscanf'
+c:\m68kv6.0 - 640by480\m68kv6.0 - 800by480 - (verilog) for students\programs\srecord_to_mif_converter\srecord_to_mif_converter\srecord_to_mif_converter\stomifconverterv6.cpp(123): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  c:\program files (x86)\windows kits\10\include\10.0.17763.0\ucrt\stdio.h(2263): note: see declaration of 'sscanf'
+c:\m68kv6.0 - 640by480\m68kv6.0 - 800by480 - (verilog) for students\programs\srecord_to_mif_converter\srecord_to_mif_converter\srecord_to_mif_converter\stomifconverterv6.cpp(124): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  c:\program files (x86)\windows kits\10\include\10.0.17763.0\ucrt\stdio.h(2263): note: see declaration of 'sscanf'
+c:\m68kv6.0 - 640by480\m68kv6.0 - 800by480 - (verilog) for students\programs\srecord_to_mif_converter\srecord_to_mif_converter\srecord_to_mif_converter\stomifconverterv6.cpp(132): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  c:\program files (x86)\windows kits\10\include\10.0.17763.0\ucrt\stdio.h(2263): note: see declaration of 'sscanf'
+  Generating code
+  1 of 85 functions ( 1.2%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    0 functions had inline decision re-evaluated but remain unchanged
+  Finished generating code
+  SRecord_to_MIF_Converter.vcxproj -> C:\M68kV6.0 - 640by480\M68kV6.0 - 800by480 - (Verilog) For Students\Programs\SRecord_to_MIF_Converter\SRecord_to_MIF_Converter\Release\SRecord_to_MIF_Converter.exe
