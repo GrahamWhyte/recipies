@@ -45,6 +45,10 @@ Begin
 			IOSelect_H <= '1' ;														-- DO NOT CHANGE - debugger expects IO at this address
 		end if ;
 		
+		if (Address(31 downto 26) = B"1111_00") then 
+			DramSelect_H <= '1'; 
+		end if ;
+		
 		---------------------------------------------------------------------------------
 		-- add other decoder signals here as we work through assignments and labs
 		---------------------------------------------------------------------------------
