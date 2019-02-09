@@ -118,6 +118,15 @@ module M68kDramController_Verilog (
 		parameter NOPRefresh_1					= 5'b01111; 		// first NOP after refresh
 		parameter NOPRefresh_2					= 5'b10000; 		// second NOP after refresh
 		parameter NOPRefresh_3					= 5'b10001;  		// third NOP after refresh
+		
+		// write states
+		parameter WriteStateOne					= 5'b10010
+		parameter DramWriteWaitOneCycle		= 5'b10011;
+		parameter WaitForCPUBusCycle			= 5'b10100;
+		
+		// read states
+		parameter ReadStateOne					= 5'b10101;
+		parameter WaitForCASLatency			= 5'b10110;
 
 		parameter Idle 							= 5'b11111; 		// Idle state
 
@@ -382,24 +391,105 @@ module M68kDramController_Verilog (
 		end
 
 		// Idle State
-		else if (CurrentState == Idle) begin 
-			if (RefreshTimerDone_H == 1) begin
+//		else if (CurrentState == Idle) begin 
+//			if (RefreshTimerDone_H == 1) begin
+//				RefreshTimerLoad_H <= 16'd375;
+//				// RefreshTimerValue <= 16'd8;
+//				RefreshTimerLoad_H <= 1;  
+//				NextState <= AllBanksPrecharging; 
+//			end
+//			else begin
+//				Command <= NOP; 
+//				NextState <= Idle;
+//			end
+//		end
+
+		else if (CurrentState == Idle) begin
+			Command = NOP;
+			if (RefreshTimerDone_H == 1) begin	// refresh
 				RefreshTimerLoad_H <= 16'd375;
 				// RefreshTimerValue <= 16'd8;
 				RefreshTimerLoad_H <= 1;  
 				NextState <= AllBanksPrecharging; 
 			end
-			else begin
-				Command <= NOP; 
+			else if (DramSelect_L == 1'b0 && AS_l == 1'b0) begin	//CPU trying to access dram
+				DramAddress <= Address[23:11];	// row address
+				BankAddress <= Address[25:24];	// bank address
+				Command <= BankActivate;
+				if () begin	// reading
+					NextState <= !!!!!;
+				end
+				else begin	// writing
+					NextState <= WriteStateOne;
+				end
+			else begin	// nothing happening, idle
 				NextState <= Idle;
 			end
 		end
-
-		// else begin 
-		// 	NextState <= Idle;
-		// end
 		
-		// add your other states and conditions here
+		//--- Writin states ---//
+		else if (NextState == WriteStateOne) begin	//writing, so we need to wait for UDS/LDS
+			if (UDS_L == 1'b0 || LDS_L == 1'b0) begin	// CPU issued them
+				DramAddress <= Address[10:1];		// column address
+				BankAddress <= Address[25:24];	// bank address
+				Command <= WriteAutoPrecharge;
+				CPU_Dtack_L <= 1b'0';				// Issue the dtack signal
+				FPGAWritingtoSDram_H <= 1b'1';	// enable tristate buffers for write
+				SDramWriteData <= DataIn;			// forward the cpu data bus value to sdram
+				NextState <= DramWriteWaitOneCycle;					// wait 1 clock cycle in the next state
+			end else begin
+				NextState <= WriteStateOne;					// go back to this state
+			end
+		end
+		
+		else if (NextState == DramWriteWaitOneCycle) begin
+			NextState <= WaitForCPUBusCycle;
+			CPU_Dtack_L <= 1b'0';				// Issue the dtack signal
+			Command <= NOP;
+			FPGAWritingtoSDram_H <= 1b'1';	// enable tristate buffers for write
+			SDramWriteData <= DataIn;			// latch the cpu data bus value
+		end
+		
+		else if (NextState == WaitForCPUBusCycle) begin
+			Command <= NOP;
+			if (UDS_L == 1'b0 || LDS_L == 1'b0) begin	// data bus cycle over for 68k
+				CPU_Dtack_L <= 1b'0';
+				NextState <= WaitForCPUBusCycle;
+			end
+			else begin
+				NextState <= Idle;
+			end
+		end
+		
+		
+		//--- reading states ---//
+		else if (nextState == ReadStateOne) begin
+			DramAddress <= Address[10:1];		// column address
+			BankAddress <= Address[25:24];	// bank address
+			Command <= ReadAutoPrecharge;
+			// cas latency timer
+			TimerValue <= 16'd2; 
+			TimerLoad_H <= 1 ;	
+			NextState <= WaitForCASLatency;
+		end
+		
+		else if(NextState == WaitForCASLatency) begin
+			CPU_Dtack_L <= 1b'0';				// Issue the dtack signal
+			Command <= NOP;
+			if () begin	// cas latency over
+				DramDataLatch_H <= 1'b1;	// capture data out of the sdram
+				NextState <= Idle;
+			end
+			else begin	// cas altency NOT over
+				NextState <= WaitForCASLatency;
+			end
+		end
+		
+		// default
+		else begin 
+		 	NextState <= Idle;
+			Command = NOP;
+		end
 		
 	end	// always@ block
 endmodule
