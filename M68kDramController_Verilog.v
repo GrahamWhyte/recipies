@@ -120,7 +120,7 @@ module M68kDramController_Verilog (
 		parameter NOPRefresh_3					= 5'b10001;  		// third NOP after refresh
 		
 		// write states
-		parameter WriteStateOne					= 5'b10010
+		parameter WriteStateOne					= 5'b10010;
 		parameter DramWriteWaitOneCycle		= 5'b10011;
 		parameter WaitForCPUBusCycle			= 5'b10100;
 		
@@ -405,23 +405,24 @@ module M68kDramController_Verilog (
 //		end
 
 		else if (CurrentState == Idle) begin
-			Command = NOP;
+			Command <= NOP;
 			if (RefreshTimerDone_H == 1) begin	// refresh
 				RefreshTimerLoad_H <= 16'd375;
 				// RefreshTimerValue <= 16'd8;
 				RefreshTimerLoad_H <= 1;  
 				NextState <= AllBanksPrecharging; 
 			end
-			else if (DramSelect_L == 1'b0 && AS_l == 1'b0) begin	//CPU trying to access dram
+			else if (DramSelect_L == 1'b0 && AS_L == 1'b0) begin	//CPU trying to access dram
 				DramAddress <= Address[23:11];	// row address
 				BankAddress <= Address[25:24];	// bank address
 				Command <= BankActivate;
-				if () begin	// reading
-					NextState <= !!!!!;
+				if (WE_L == 1) begin	// reading
+					NextState <= ReadStateOne;
 				end
 				else begin	// writing
 					NextState <= WriteStateOne;
 				end
+			end
 			else begin	// nothing happening, idle
 				NextState <= Idle;
 			end
@@ -433,8 +434,8 @@ module M68kDramController_Verilog (
 				DramAddress <= Address[10:1];		// column address
 				BankAddress <= Address[25:24];	// bank address
 				Command <= WriteAutoPrecharge;
-				CPU_Dtack_L <= 1b'0';				// Issue the dtack signal
-				FPGAWritingtoSDram_H <= 1b'1';	// enable tristate buffers for write
+				CPU_Dtack_L <= 1'b0;				// Issue the dtack signal
+				FPGAWritingtoSDram_H <= 1'b1;	// enable tristate buffers for write
 				SDramWriteData <= DataIn;			// forward the cpu data bus value to sdram
 				NextState <= DramWriteWaitOneCycle;					// wait 1 clock cycle in the next state
 			end else begin
@@ -444,16 +445,16 @@ module M68kDramController_Verilog (
 		
 		else if (NextState == DramWriteWaitOneCycle) begin
 			NextState <= WaitForCPUBusCycle;
-			CPU_Dtack_L <= 1b'0';				// Issue the dtack signal
+			CPU_Dtack_L <= 1'b0;				// Issue the dtack signal
 			Command <= NOP;
-			FPGAWritingtoSDram_H <= 1b'1';	// enable tristate buffers for write
+			FPGAWritingtoSDram_H <= 1'b1;	// enable tristate buffers for write
 			SDramWriteData <= DataIn;			// latch the cpu data bus value
 		end
 		
 		else if (NextState == WaitForCPUBusCycle) begin
 			Command <= NOP;
 			if (UDS_L == 1'b0 || LDS_L == 1'b0) begin	// data bus cycle over for 68k
-				CPU_Dtack_L <= 1b'0';
+				CPU_Dtack_L <= 1'b0;
 				NextState <= WaitForCPUBusCycle;
 			end
 			else begin
@@ -463,20 +464,20 @@ module M68kDramController_Verilog (
 		
 		
 		//--- reading states ---//
-		else if (nextState == ReadStateOne) begin
+		else if (NextState == ReadStateOne) begin
 			DramAddress <= Address[10:1];		// column address
 			BankAddress <= Address[25:24];	// bank address
 			Command <= ReadAutoPrecharge;
 			// cas latency timer
 			TimerValue <= 16'd2; 
-			TimerLoad_H <= 1 ;	
+			TimerLoad_H <= 1'b1 ;	
 			NextState <= WaitForCASLatency;
 		end
 		
 		else if(NextState == WaitForCASLatency) begin
-			CPU_Dtack_L <= 1b'0';				// Issue the dtack signal
+			CPU_Dtack_L <= 1'b0;				// Issue the dtack signal
 			Command <= NOP;
-			if () begin	// cas latency over
+			if (TimerDone_H == 1) begin	// cas latency over
 				DramDataLatch_H <= 1'b1;	// capture data out of the sdram
 				NextState <= Idle;
 			end
@@ -488,7 +489,7 @@ module M68kDramController_Verilog (
 		// default
 		else begin 
 		 	NextState <= Idle;
-			Command = NOP;
+			Command <= NOP;
 		end
 		
 	end	// always@ block
