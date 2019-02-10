@@ -121,12 +121,12 @@ module M68kDramController_Verilog (
 		
 		// write states
 		parameter WriteStateOne					= 5'b10010;
-		parameter DramWriteWaitOneCycle		= 5'b10011;
+		parameter DramWriteWaitOneCycle			= 5'b10011;
 		parameter WaitForCPUBusCycle			= 5'b10100;
 		
 		// read states
 		parameter ReadStateOne					= 5'b10101;
-		parameter WaitForCASLatency			= 5'b10110;
+		parameter WaitForCASLatency				= 5'b10110;
 
 		parameter Idle 							= 5'b11111; 		// Idle state
 
@@ -264,8 +264,8 @@ module M68kDramController_Verilog (
 		// we are going to load the timer above with a value equiv to 100us and then wait for timer to time out
 	
 		if(CurrentState == InitialisingState ) begin
-			// TimerValue <= 16'b0000000000001000;					// chose a value equivalent to 100us at 50Mhz clock - you might want to shorten it to somthing small for simulation purposes
-			TimerValue <= 16'd5000; 
+			TimerValue <= 16'b0000000000001000;					// chose a value equivalent to 100us at 50Mhz clock - you might want to shorten it to somthing small for simulation purposes
+			// TimerValue <= 16'd5000; 
 			TimerLoad_H <= 1 ;										// on next edge of clock, timer will be loaded and start to time out
 			Command <= PoweringUp ;									// clock enable and chip select to the Zentel Dram chip must be held low (disabled) during a power up phase
 			NextState <= WaitingForPowerUpState ;				// once we have loaded the timer, go to a new state where we wait for the 100us to elapse
@@ -352,8 +352,8 @@ module M68kDramController_Verilog (
 			NextState <= Idle; 
 			
 			// Start the refresh timer
-			RefreshTimerLoad_H <= 16'd375;
-			// RefreshTimerValue <= 16'd8;
+			// RefreshTimerLoad_H <= 16'd375;
+			RefreshTimerValue <= 16'd24;
 			RefreshTimerLoad_H <= 1;  
 			CPUReset_L <= 0; 
 		end					
@@ -363,31 +363,37 @@ module M68kDramController_Verilog (
 			DramAddress[10] <= 1'b1; 				// Set A10 high
 			Command <= PrechargeAllBanks; 
 			NextState <= PrechargeNOP; 
+			CPU_Dtack_L <= 1'b0;				// Issue the dtack signal
 		end
 
 		else if(CurrentState == PrechargeNOP) begin 
 			Command <= NOP;
 			NextState <= Refresh; 
+			CPU_Dtack_L <= 1'b0;				// Issue the dtack signal
 		end
 
 		else if(CurrentState == Refresh) begin 
 			Command <= AutoRefresh;
 			NextState <= NOPRefresh_1; 
+			CPU_Dtack_L <= 1'b0;				// Issue the dtack signal
 		end
 
 		else if(CurrentState == NOPRefresh_1) begin 
 			Command <= NOP;
 			NextState <= NOPRefresh_2; 
+			CPU_Dtack_L <= 1'b0;				// Issue the dtack signal
 		end
 
 		else if(CurrentState == NOPRefresh_2) begin 
 			Command <= NOP;
 			NextState <= NOPRefresh_3; 
+			CPU_Dtack_L <= 1'b0;				// Issue the dtack signal
 		end
 
 		else if(CurrentState == NOPRefresh_3) begin 
 			Command <= NOP;
 			NextState <= Idle; 
+			CPU_Dtack_L <= 1'b0;				// Issue the dtack signal
 		end
 
 		// Idle State
@@ -404,32 +410,8 @@ module M68kDramController_Verilog (
 //			end
 //		end
 
-		else if (CurrentState == Idle) begin
-			Command <= NOP;
-			if (RefreshTimerDone_H == 1) begin	// refresh
-				RefreshTimerLoad_H <= 16'd375;
-				// RefreshTimerValue <= 16'd8;
-				RefreshTimerLoad_H <= 1;  
-				NextState <= AllBanksPrecharging; 
-			end
-			else if (DramSelect_L == 1'b0 && AS_L == 1'b0) begin	//CPU trying to access dram
-				DramAddress <= Address[23:11];	// row address
-				BankAddress <= Address[25:24];	// bank address
-				Command <= BankActivate;
-				if (WE_L == 1) begin	// reading
-					NextState <= ReadStateOne;
-				end
-				else begin	// writing
-					NextState <= WriteStateOne;
-				end
-			end
-			else begin	// nothing happening, idle
-				NextState <= Idle;
-			end
-		end
-		
-		//--- Writin states ---//
-		else if (NextState == WriteStateOne) begin	//writing, so we need to wait for UDS/LDS
+		//--- Writing states ---//
+		else if (CurrentState == WriteStateOne) begin	//writing, so we need to wait for UDS/LDS
 			if (UDS_L == 1'b0 || LDS_L == 1'b0) begin	// CPU issued them
 				DramAddress <= Address[10:1];		// column address
 				BankAddress <= Address[25:24];	// bank address
@@ -438,12 +420,13 @@ module M68kDramController_Verilog (
 				FPGAWritingtoSDram_H <= 1'b1;	// enable tristate buffers for write
 				SDramWriteData <= DataIn;			// forward the cpu data bus value to sdram
 				NextState <= DramWriteWaitOneCycle;					// wait 1 clock cycle in the next state
-			end else begin
+			end 
+			else begin
 				NextState <= WriteStateOne;					// go back to this state
 			end
 		end
 		
-		else if (NextState == DramWriteWaitOneCycle) begin
+		else if (CurrentState == DramWriteWaitOneCycle) begin
 			NextState <= WaitForCPUBusCycle;
 			CPU_Dtack_L <= 1'b0;				// Issue the dtack signal
 			Command <= NOP;
@@ -451,7 +434,7 @@ module M68kDramController_Verilog (
 			SDramWriteData <= DataIn;			// latch the cpu data bus value
 		end
 		
-		else if (NextState == WaitForCPUBusCycle) begin
+		else if (CurrentState == WaitForCPUBusCycle) begin
 			Command <= NOP;
 			if (UDS_L == 1'b0 || LDS_L == 1'b0) begin	// data bus cycle over for 68k
 				CPU_Dtack_L <= 1'b0;
@@ -464,7 +447,7 @@ module M68kDramController_Verilog (
 		
 		
 		//--- reading states ---//
-		else if (NextState == ReadStateOne) begin
+		else if (CurrentState == ReadStateOne) begin 
 			DramAddress <= Address[10:1];		// column address
 			BankAddress <= Address[25:24];	// bank address
 			Command <= ReadAutoPrecharge;
@@ -474,7 +457,7 @@ module M68kDramController_Verilog (
 			NextState <= WaitForCASLatency;
 		end
 		
-		else if(NextState == WaitForCASLatency) begin
+		else if(CurrentState == WaitForCASLatency) begin
 			CPU_Dtack_L <= 1'b0;				// Issue the dtack signal
 			Command <= NOP;
 			if (TimerDone_H == 1) begin	// cas latency over
@@ -483,6 +466,31 @@ module M68kDramController_Verilog (
 			end
 			else begin	// cas altency NOT over
 				NextState <= WaitForCASLatency;
+			end
+		end
+		
+		else if (CurrentState == Idle) begin
+			Command <= NOP;
+			if (RefreshTimerDone_H == 1) begin	// refresh
+				// RefreshTimerLoad_H <= 16'd375;
+				RefreshTimerValue <= 16'd24;
+				RefreshTimerLoad_H <= 1;  
+				NextState <= AllBanksPrecharging;
+			end
+			else if (DramSelect_L == 1'b0 && AS_L == 1'b0) begin	//CPU trying to access dram
+				DramAddress <= Address[23:11];	// row address
+				BankAddress <= Address[25:24];	// bank address
+				Command <= BankActivate;
+				if (WE_L == 1) begin	// reading
+					NextState <= ReadStateOne;
+				end
+				else begin	// writing
+					NextState <= WriteStateOne;
+				end
+			end
+
+			else begin	// nothing happening, idle
+				NextState <= Idle;
 			end
 		end
 		

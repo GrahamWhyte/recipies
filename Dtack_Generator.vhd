@@ -52,14 +52,13 @@ Begin
 			-- we generate DtackOut_L as a copy of the signal produced by the CanBus controller (i.e. the signal CanBusDtack_L) which comes from the CanBus controller
 			-- we can add extra 'if' tests to cover all the other kinds of things that may need a dtack other than the default above e.g. dram controller etc
 			
-			if(CanBusSelect_H = '1')	then		-- if canbus is being selected and for example it needed wait states
+			
+			if (DramSelect_H = '1') then
+				DtackOut_L <= DramDtack_L;
+			elsif(CanBusSelect_H = '1')	then		-- if canbus is being selected and for example it needed wait states
 				DtackOut_L <= CanBusDtack_L;		-- copy the dtack signal from the can controller and give this as the dtack to the 68k
 			end if ;
-			
-			if (DramSelect_H = '1')then
-				DtackOut_L <= DramDtack_L;
-			end if; 
-			
+
 		end if ;	
 	end process ;
 END ;
