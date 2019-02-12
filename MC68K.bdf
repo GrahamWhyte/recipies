@@ -4,20 +4,19 @@ editor if you plan to continue editing the block that represents it in
 the Block Editor! File corruption is VERY likely to occur.
 */
 /*
-Copyright (C) 1991-2015 Altera Corporation. All rights reserved.
-Your use of Altera Corporation's design tools, logic functions 
+Copyright (C) 2017  Intel Corporation. All rights reserved.
+Your use of Intel Corporation's design tools, logic functions 
 and other software and tools, and its AMPP partner logic 
 functions, and any output files from any of the foregoing 
 (including device programming or simulation files), and any 
 associated documentation or information are expressly subject 
-to the terms and conditions of the Altera Program License 
-Subscription Agreement, the Altera Quartus II License Agreement,
-the Altera MegaCore Function License Agreement, or other 
-applicable license agreement, including, without limitation, 
-that your use is for the sole purpose of programming logic 
-devices manufactured by Altera and sold by Altera or its 
-authorized distributors.  Please refer to the applicable 
-agreement for further details.
+to the terms and conditions of the Intel Program License 
+Subscription Agreement, the Intel Quartus Prime License Agreement,
+the Intel FPGA IP License Agreement, or other applicable license
+agreement, including, without limitation, that your use is for
+the sole purpose of programming logic devices manufactured by
+Intel and sold by Intel or its authorized distributors.  Please
+refer to the applicable agreement for further details.
 */
 //#pragma file_not_in_maxplusii_format
 (header "graphic" (version "1.4"))
@@ -1163,22 +1162,6 @@ agreement for further details.
 		(line (pt 78 12)(pt 82 8))
 	)
 	(annotation_block (location)(rect 2184 2576 2248 2592))
-)
-(pin
-	(output)
-	(rect 2088 -8 2280 8)
-	(text "OUTPUT" (rect 1 0 39 10)(font "Arial" (font_size 6)))
-	(text "DRAM_STATE[4..0]" (rect 90 0 186 12)(font "Arial" ))
-	(pt 0 8)
-	(drawing
-		(line (pt 0 8)(pt 52 8))
-		(line (pt 52 4)(pt 78 4))
-		(line (pt 52 12)(pt 78 12))
-		(line (pt 52 12)(pt 52 4))
-		(line (pt 78 4)(pt 82 8))
-		(line (pt 82 8)(pt 78 12))
-		(line (pt 78 12)(pt 82 8))
-	)
 )
 (pin
 	(bidir)
@@ -4337,18 +4320,6 @@ agreement for further details.
 	(bus)
 )
 (connector
-	(pt -272 -664)
-	(pt 576 -664)
-)
-(connector
-	(pt -272 -664)
-	(pt -272 240)
-)
-(connector
-	(pt -272 240)
-	(pt -272 1304)
-)
-(connector
 	(pt 1360 280)
 	(pt 2080 280)
 )
@@ -4598,10 +4569,6 @@ agreement for further details.
 (connector
 	(pt -624 -664)
 	(pt -576 -664)
-)
-(connector
-	(pt -576 -664)
-	(pt -272 -664)
 )
 (connector
 	(pt -512 -840)
@@ -5533,6 +5500,38 @@ agreement for further details.
 	(pt 1760 0)
 	(pt 2088 0)
 	(bus)
+)
+(connector
+	(pt -272 -664)
+	(pt -272 -600)
+)
+(connector
+	(pt -576 -664)
+	(pt -272 -664)
+)
+(connector
+	(pt -272 -664)
+	(pt 576 -664)
+)
+(connector
+	(pt -272 -544)
+	(pt -272 240)
+)
+(connector
+	(pt -272 240)
+	(pt -272 1304)
+)
+(connector
+	(pt 848 -544)
+	(pt -272 -544)
+)
+(connector
+	(pt 848 96)
+	(pt 1904 96)
+)
+(connector
+	(pt 848 -544)
+	(pt 848 96)
 )
 (junction (pt 1280 224))
 (junction (pt 1376 224))
