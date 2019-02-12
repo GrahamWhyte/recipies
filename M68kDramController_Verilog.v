@@ -352,8 +352,8 @@ module M68kDramController_Verilog (
 			NextState <= Idle; 
 			
 			// Start the refresh timer
-			// RefreshTimerLoad_H <= 16'd375;
-			RefreshTimerValue <= 16'd24;
+			RefreshTimerValue <= 16'd375;
+//			RefreshTimerValue <= 16'd24;
 			RefreshTimerLoad_H <= 1;  
 			CPUReset_L <= 0; 
 		end					
@@ -363,58 +363,40 @@ module M68kDramController_Verilog (
 			DramAddress[10] <= 1'b1; 				// Set A10 high
 			Command <= PrechargeAllBanks; 
 			NextState <= PrechargeNOP; 
-			CPU_Dtack_L <= 1'b0;				// Issue the dtack signal
 		end
 
 		else if(CurrentState == PrechargeNOP) begin 
 			Command <= NOP;
 			NextState <= Refresh; 
-			CPU_Dtack_L <= 1'b0;				// Issue the dtack signal
 		end
 
 		else if(CurrentState == Refresh) begin 
 			Command <= AutoRefresh;
 			NextState <= NOPRefresh_1; 
-			CPU_Dtack_L <= 1'b0;				// Issue the dtack signal
 		end
 
 		else if(CurrentState == NOPRefresh_1) begin 
 			Command <= NOP;
 			NextState <= NOPRefresh_2; 
-			CPU_Dtack_L <= 1'b0;				// Issue the dtack signal
 		end
 
 		else if(CurrentState == NOPRefresh_2) begin 
 			Command <= NOP;
 			NextState <= NOPRefresh_3; 
-			CPU_Dtack_L <= 1'b0;				// Issue the dtack signal
 		end
 
 		else if(CurrentState == NOPRefresh_3) begin 
 			Command <= NOP;
 			NextState <= Idle; 
-			CPU_Dtack_L <= 1'b0;				// Issue the dtack signal
 		end
 
-		// Idle State
-//		else if (CurrentState == Idle) begin 
-//			if (RefreshTimerDone_H == 1) begin
-//				RefreshTimerLoad_H <= 16'd375;
-//				// RefreshTimerValue <= 16'd8;
-//				RefreshTimerLoad_H <= 1;  
-//				NextState <= AllBanksPrecharging; 
-//			end
-//			else begin
-//				Command <= NOP; 
-//				NextState <= Idle;
-//			end
-//		end
 
 		//--- Writing states ---//
 		else if (CurrentState == WriteStateOne) begin	//writing, so we need to wait for UDS/LDS
 			if (UDS_L == 1'b0 || LDS_L == 1'b0) begin	// CPU issued them
 				DramAddress <= Address[10:1];		// column address
 				BankAddress <= Address[25:24];	// bank address
+				DramAddress[10] <= 1'b1;
 				Command <= WriteAutoPrecharge;
 				CPU_Dtack_L <= 1'b0;				// Issue the dtack signal
 				FPGAWritingtoSDram_H <= 1'b1;	// enable tristate buffers for write
@@ -450,6 +432,7 @@ module M68kDramController_Verilog (
 		else if (CurrentState == ReadStateOne) begin 
 			DramAddress <= Address[10:1];		// column address
 			BankAddress <= Address[25:24];	// bank address
+			DramAddress[10] <= 1'b1;
 			Command <= ReadAutoPrecharge;
 			// cas latency timer
 			TimerValue <= 16'd2; 
@@ -462,7 +445,7 @@ module M68kDramController_Verilog (
 			Command <= NOP;
 			if (TimerDone_H == 1) begin	// cas latency over
 				DramDataLatch_H <= 1'b1;	// capture data out of the sdram
-				NextState <= Idle;
+				NextState <= WaitForCPUBusCycle;
 			end
 			else begin	// cas altency NOT over
 				NextState <= WaitForCASLatency;
@@ -472,8 +455,8 @@ module M68kDramController_Verilog (
 		else if (CurrentState == Idle) begin
 			Command <= NOP;
 			if (RefreshTimerDone_H == 1) begin	// refresh
-				// RefreshTimerLoad_H <= 16'd375;
-				RefreshTimerValue <= 16'd24;
+				RefreshTimerValue <= 16'd375;
+//				RefreshTimerValue <= 16'd24;
 				RefreshTimerLoad_H <= 1;  
 				NextState <= AllBanksPrecharging;
 			end
