@@ -31,7 +31,7 @@ unsigned int WatchPointSetOrCleared[8] ;
 char WatchPointString[8][100] ;
 
 // Types
-typedef enum {FALSE, TRUE} bool; 
+typedef enum {FALSE, TRUE} bool;
 
 // for disassembly of program
 char    Instruction[100] ;
@@ -1419,18 +1419,18 @@ void MemoryTest(void)
     unsigned int *RamPtr, counter1=1, *failPtr;
     register unsigned int i ;
     unsigned int Start, End, writeVal, readVal;
-    unsigned int cp, failAddr; 
+    unsigned int cp, failAddr;
     char c;
-    bool memTestFail = FALSE; 
-    char progressBarStringWrite[24] = {""}; 
-    char progressBarStringRead[24] = {""}; 
+    bool memTestFail = FALSE;
+    char progressBarStringWrite[24] = {""};
+    char progressBarStringRead[24] = {""};
     char failureString0[24];
     char failureString1[24];
     unsigned int progBarIndex = 0;
-    bool invalidAddress = FALSE; 
+    bool invalidAddress = FALSE;
 
-    Oline0("Memory Test"); 
-    Oline1(" "); 
+    Oline0("Memory Test");
+    Oline1(" ");
 
     printf("\r\nStart Address: ") ;
     Start = Get8HexDigits(0) ;
@@ -1442,83 +1442,86 @@ void MemoryTest(void)
         RamPtr = (unsigned int*)Start;
         cp = (End-Start)/24 + Start; // Initial displacement for LCD
 
-        printf("\r\nWriting\n"); 
+        printf("\r\nWriting\n");
 
         // Test 1: Write all ones and read them back
-        writeVal = 0xFEE1DEAD; 
+        writeVal = 0xFEE1DEAD;
         Oline0("Writing");
         while (RamPtr<End)
         {
             if ((unsigned int)RamPtr >= cp)
             {
-                cp += (End-Start)/24; 
+                cp += (End-Start)/24;
                 progressBarStringWrite[progBarIndex] = '#';
-                printf("%s", "#"); 
+                printf("%s", "#");
                 Oline1(progressBarStringWrite);
-                progBarIndex++; 
+                progBarIndex++;
             }
-            *RamPtr = writeVal; 
-            RamPtr++; 
-            Wait500us(); 
+            *RamPtr = writeVal;
+            RamPtr++;
+            //Wait500us();
         }
 
         // Inject failure halfway between start and end
-        failAddr = Start + (End-Start)/2; 
-        failPtr = (unsigned int *)(failAddr); 
-        *failPtr = 0xCCCCCCCC; 
+        //failAddr = Start + (End-Start)/2;
+        //failPtr = (unsigned int *)(failAddr);
+        //*failPtr = 0xCCCCCCCC;
 
-        printf("\r\nReading\n"); 
-        RamPtr = (unsigned int*)Start; 
+        printf("\r\nReading\n");
+        RamPtr = (unsigned int*)Start;
         cp = (End-Start)/24 + Start; // Initial displacement for LCD
-        progBarIndex = 0; 
+        progBarIndex = 0;
         Oline0("Reading");
         while (RamPtr<End)
         {
             if ((unsigned int)RamPtr >= cp)
             {
-                cp += (End-Start)/24; 
+                cp += (End-Start)/24;
                 progressBarStringRead[progBarIndex] = '#';
                 Oline1(progressBarStringRead);
                 printf("%s", "#");
-                progBarIndex++; 
+                progBarIndex++;
             }
 
             readVal = *RamPtr;
 
             if (readVal != writeVal)
             {
-                printf("\r\nFAILED!!!!!!");
-                memTestFail = TRUE; 
-                break; 
+                printf("\r\nFailed at address %X\t", RamPtr);
+                printf("Expected value: %X\t", writeVal);
+                printf("Actual Value: %X", readVal);
+                //printf("\r\nFAILED!!!!!!");
+                //memTestFail = TRUE;
+                //break;
             }
-            RamPtr++; 
-            Wait500us(); 
+            RamPtr++;
+            //Wait500us();
         }
 
         if (memTestFail == TRUE)
         {
-            printf("\r\nFailed at address %X", RamPtr); 
+            printf("\r\nFailed at address %X", RamPtr);
             printf("\r\nExpected value: %X", writeVal);
-            printf("\r\nActual Value: %X", readVal); 
+            printf("\r\nActual Value: %X", readVal);
             sprintf(failureString0, "Failed at %X", RamPtr);
-            sprintf(failureString1, "W:%X R:%X", writeVal, readVal); 
+            sprintf(failureString1, "W:%X R:%X", writeVal, readVal);
             Oline0(failureString0);
-            Oline1(failureString1);  
+            Oline1(failureString1);
         }
         else
         {
             Oline0("Memory Test Successful");
             printf("\r\nMemory Test Successful");
-            PortA = 0x3FF; 
+            PortA = 0x3FF;
         }
     }
     else
     {
         printf("\r\nInvalid Address: End must be greater than Start");
         Oline0("Invalid Address");
-        Oline1(" "); 
+        Oline1(" ");
     }
-    
+
 
 }
 
