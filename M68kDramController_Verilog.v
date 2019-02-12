@@ -427,7 +427,6 @@ module M68kDramController_Verilog (
 			end
 		end
 		
-		
 		//--- reading states ---//
 		else if (CurrentState == ReadStateOne) begin 
 			DramAddress <= Address[10:1];		// column address

@@ -1459,13 +1459,12 @@ void MemoryTest(void)
             }
             *RamPtr = writeVal; 
             RamPtr++; 
-            Wait500us(); 
         }
 
         // Inject failure halfway between start and end
-        failAddr = Start + (End-Start)/2; 
-        failPtr = (unsigned int *)(failAddr); 
-        *failPtr = 0xCCCCCCCC; 
+        // failAddr = Start + (End-Start)/2; 
+        // failPtr = (unsigned int *)(failAddr); 
+        // *failPtr = 0xCCCCCCCC; 
 
         printf("\r\nReading\n"); 
         RamPtr = (unsigned int*)Start; 
@@ -1489,10 +1488,9 @@ void MemoryTest(void)
             {
                 printf("\r\nFAILED!!!!!!");
                 memTestFail = TRUE; 
-                break; 
+                // break; 
             }
             RamPtr++; 
-            Wait500us(); 
         }
 
         if (memTestFail == TRUE)
