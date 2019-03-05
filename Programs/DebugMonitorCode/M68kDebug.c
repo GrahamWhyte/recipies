@@ -695,13 +695,12 @@ void ProgramFlashChip(void)
     int ramWord;
     bool dataNotCopied = 1;
 
-    printf("\r\nProgramming Flash...");
-
     while (dataNotCopied) {
         RamPtr = PROGRAM_BASE_ADDRESS;
 
+        printf("erasing flash...\r\n");
         ChipErase();
-
+        printf("Writing to flash...\r\n");
         //write 256kBytes
         for (i; i < 262144; i += 2) {
             // get a word from ram
@@ -717,9 +716,13 @@ void ProgramFlashChip(void)
             //write the word as 2 bytes to flash
             WriteData(i, flashBytes, sizeof(flashBytes));
         }
+        printf("Done programming flash...\r\n");
+        printf("checking flash contents...\r\n");
 
         //verify the data integrity, and repeat if it is not correct
         RamPtr = PROGRAM_BASE_ADDRESS;
+
+        dataNotCopied = 0;  //assume it was copied properly
         for (i; i < 262144; i += 2) {
             // get a word from ram
             ramWord = *RamPtr;
@@ -736,8 +739,10 @@ void ProgramFlashChip(void)
 
             // verify bytes were properly copied
             if ( (flashBytes[0] != flashCheckBytes[0]) || (flashBytes[1] != flashCheckBytes[1]) ) {
-                dataNotCopied = 0;
+                dataNotCopied = 1;
                 break;  // successful copy, break and leave function
+                printf("Error copying memory to flash!\n\r");
+                printf("Expected: 0x%x%x\tgot: 0x%x", flashBytes[0], flashBytes[1], flashCheckBytes[0], flashCheckBytes[1]);
             }
         }
     }
