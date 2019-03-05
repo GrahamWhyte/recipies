@@ -1,12 +1,12 @@
 #include "DebugMonitor.h"
 
 // use 08030000 for a system running from sram or 0B000000 for system running from dram
-#define StartOfExceptionVectorTable 0x08030000
-//#define StartOfExceptionVectorTable 0x0B000000
+// #define StartOfExceptionVectorTable 0x08030000
+#define StartOfExceptionVectorTable 0x0B000000
 
 // use 0C000000 for dram or hex 08040000 for sram
-#define TopOfStack 0x08040000
-//#define TopOfStack 0x0C000000
+// #define TopOfStack 0x08040000
+#define TopOfStack 0x0C000000
 
 #define PROGRAM_BASE_ADDRESS 0x08000000
 
@@ -689,20 +689,22 @@ void ProgramFlashChip(void)
     // TODO : put your code here to program the 1st 256k of ram (where user program is held at hex 08000000) to SPI flash chip
     // TODO : then verify by reading it back and comparing to memory
     //
-    unsigned int *RamPtr = PROGRAM_BASE_ADDRESS;
+    short unsigned int *RamPtr = PROGRAM_BASE_ADDRESS;
     int i = 0;
     unsigned char flashBytes[2], flashCheckBytes[2];
-    int ramWord;
+    short int ramWord;
     bool dataNotCopied = 1;
+    volatile long int dummy=0;
 
     while (dataNotCopied) {
         RamPtr = PROGRAM_BASE_ADDRESS;
 
-        printf("erasing flash...\r\n");
+        printf("\r\nErasing flash...\r\n");
         ChipErase();
         printf("Writing to flash...\r\n");
         //write 256kBytes
-        for (i; i < 262144; i += 2) {
+        for (i = 0; i < 262144; i += 2) {
+            dummy++;
             // get a word from ram
             ramWord = *RamPtr;
 
@@ -712,6 +714,9 @@ void ProgramFlashChip(void)
             //parse the word
             flashBytes[0] = (unsigned char)(ramWord >> 8);
             flashBytes[1] = (unsigned char)ramWord;
+
+            // if (i <= 0x3feea && i >= 0x3feda)
+            //     printf("Deconstructed: 0x%x 0x%x\tReconstructed: 0x%x\r\n", flashBytes[0], flashBytes[1], ramWord);
 
             //write the word as 2 bytes to flash
             WriteData(i, flashBytes, sizeof(flashBytes));
@@ -723,7 +728,7 @@ void ProgramFlashChip(void)
         RamPtr = PROGRAM_BASE_ADDRESS;
 
         dataNotCopied = 0;  //assume it was copied properly
-        for (i; i < 262144; i += 2) {
+        for (i = 0; i < 262144; i += 2) {
             // get a word from ram
             ramWord = *RamPtr;
 
@@ -738,14 +743,18 @@ void ProgramFlashChip(void)
             ReadData(i, sizeof(flashCheckBytes), flashCheckBytes);
 
             // verify bytes were properly copied
+            if (i <= 0x3feea && i >= 0x3feda)
+                printf("Deconstructed: 0x%x 0x%x\tReconstructed: 0x%x\r\n", flashBytes[0], flashBytes[1], ramWord);
             if ( (flashBytes[0] != flashCheckBytes[0]) || (flashBytes[1] != flashCheckBytes[1]) ) {
-                dataNotCopied = 1;
+                //dataNotCopied = 1;
+                DumpRegisters();
+                printf("Flash Address: 0x%x DRam Address: 0x%x\n\r", i, RamPtr);
+                printf("Expected: 0x%x%x\tgot: 0x%x\r\n", flashBytes[0], flashBytes[1], flashCheckBytes[0], flashCheckBytes[1]);
                 break;  // successful copy, break and leave function
-                printf("Error copying memory to flash!\n\r");
-                printf("Expected: 0x%x%x\tgot: 0x%x", flashBytes[0], flashBytes[1], flashCheckBytes[0], flashCheckBytes[1]);
             }
         }
     }
+    printf("Done writing from DRam to Flash\r\n");
 }
 
 /*************************************************************************
@@ -753,10 +762,10 @@ void ProgramFlashChip(void)
 **************************************************************************/
 void LoadFromFlashChip(void)
 {
-    unsigned int *RamPtr = PROGRAM_BASE_ADDRESS;
+    short unsigned int *RamPtr = PROGRAM_BASE_ADDRESS;
     int i = 0;
     unsigned char flashBytes[2];
-    int ramWord;
+    short int ramWord;
 
     printf("\r\nLoading Program From SPI Flash....") ;
 
@@ -771,11 +780,15 @@ void LoadFromFlashChip(void)
         ramWord = 0;
         ramWord += (flashBytes[0] << 8);
         ramWord += flashBytes[1];
+        if (i < 10)
+            printf("Deconstructed: 0x%x 0x%x\tReconstructed: 0x%x\r\n", flashBytes[0], flashBytes[1], ramWord);
         *RamPtr = ramWord;
 
         //increment ram pointer to the next word
         RamPtr++;
     }
+
+    printf("\r\nDone Loading from Flash to DRam");
 
 
 }
@@ -1728,9 +1741,9 @@ void MemoryTest(void)
 
             if (readVal != writeVal)
             {
-                printf("\r\nFAILED!!!!!!");
+                //printf("\r\nFAILED!!!!!!");
                 memTestFail = TRUE; 
-                // break; 
+                break; 
             }
             RamPtr++; 
         }
