@@ -554,9 +554,6 @@ void main()
     int SPI_Test, dummy; 
     int writeCount, sectorCount;
 
-    // unsigned char testWriteData[256] = {0x55};
-    // unsigned char testReadData[256] = {0};
-
     unsigned char testWriteData[256];
     unsigned char testReadData[256];
 
@@ -590,10 +587,13 @@ void main()
     memset(testReadData, 0x00, sizeof(testWriteData)); 
 
     ChipErase();
+
+    // setup the write data
     for (i = 0; i < sizeof(testReadData); i++) {
         testWriteData[i] = i;
     }
     
+    // write the whole chip
     for (sectorCount = 0; sectorCount <= NUM_SECTORS; sectorCount++)
     { 
         for (writeCount = 0; writeCount <= WRITES_PER_SECTOR; writeCount++)
@@ -602,94 +602,12 @@ void main()
             testAddress += 256;
         }
     }
-
-    // for (sectorCount = 0; sectorCount <= NUM_SECTORS; sectorCount++)
-    // { 
-    //     for (writeCount = 0; writeCount <= WRITES_PER_SECTOR; writeCount++)
-    //     {   
-    //         WriteData(testAddress, testWriteData, sizeof(testWriteData));
-    //         testAddress += 256;
-    //     }
-    // }
-    // WriteData(testAddress, testWriteData, sizeof(testWriteData));
     ReadData(testAddress, sizeof(testReadData), testReadData);
 
-    // WriteData(testAddress, testWriteData, 2);
-    // ReadData(testAddress, 2, testReadData);
 
     for (i = 0; i < sizeof(testReadData); i++) {
         printf("\r\nGot 0x%x\tExpected 0x%x", (int)testReadData[i], (int)testWriteData[i]);
     }
-    // // Erase the contents of the chip 
-    // Enable_SPI_CS();
-    // dummy = WriteSPIChar(0x06);
-    // Disable_SPI_CS(); 
-
-    // Enable_SPI_CS();
-    // dummy = WriteSPIChar(0x60);
-    // Disable_SPI_CS(); 
-
-    // Enable_SPI_CS();
-    // WriteSPIChar(0x05);
-    // while((WriteSPIChar(0x55)&0x01) == 1);
-    // Disable_SPI_CS();
-
-    // // write one byte
-    // Enable_SPI_CS();
-    // dummy = WriteSPIChar(0x06); //wren
-    // Disable_SPI_CS(); 
-
-    // Enable_SPI_CS();
-    // WriteSPIChar(0x02); //page program command
-    // WriteSPIChar(0x00); //addres high
-    // WriteSPIChar(0x00); // address middle
-    // WriteSPIChar(0x00); //address low
-    // WriteSPIChar(0xbb); //1 byte
-    // WriteSPIChar(0x55); //1 byte
-    // Disable_SPI_CS();
-
-    // // wait for internal writing to complete
-    // Enable_SPI_CS();
-    // WriteSPIChar(0x05);
-    // while((WriteSPIChar(0x55)&0x01) == 1);
-    // Disable_SPI_CS();
-
-    // // read one byte
-    // Enable_SPI_CS();
-    // WriteSPIChar(0x03); //page program command
-    // WriteSPIChar(0x00); //addres high
-    // WriteSPIChar(0x00); // address middle
-    // WriteSPIChar(0x00); //address low
-    // SPI_Test = WriteSPIChar(0x55); //1 byte
-    // dummy = WriteSPIChar(0x55); //1 byte
-    // Disable_SPI_CS();
-
-    // printf("\r\nExpected 0xbb, read 0x%x", SPI_Test);
-    // printf("\r\nExpected 0x55, read 0x%x", dummy);
-
-    // Read and Write Test
-    // Enable_SPI_CS();
-    // dummy = WriteSPIChar(0x06); 
-    // Disable_SPI_CS(); 
-    // printf("\r\nDummy1: %x\n", dummy); 
-    // Enable_SPI_CS();
-    // dummy = WriteSPIChar(0x05); 
-
-    // printf("\r\nDummy2: %x\n", dummy);
-    // SPI_Test = WriteSPIChar(0x55); 
-    // printf("\r\nSPI Test: %x\n", SPI_Test); 
-    // SPI_Test = WriteSPIChar(0x55); 
-    // printf("\r\nSPI Test: %x\n", SPI_Test); 
-    // SPI_Test = WriteSPIChar(0x55); 
-    // printf("\r\nSPI Test: %x\n", SPI_Test); 
-    // SPI_Test = WriteSPIChar(0x55); 
-    // printf("\r\nSPI Test: %x\n", SPI_Test); 
-    // SPI_Test = WriteSPIChar(0x55); 
-    // printf("\r\nSPI Test: %x\n", SPI_Test); 
-    // SPI_Test = WriteSPIChar(0x55); 
-    // Disable_SPI_CS(); 
-
-    // printf("\r\nSPI Test: %x\n", SPI_Test); 
 
 
 
@@ -697,20 +615,5 @@ void main()
 **  Test of scanf function
 *************************************************************************************************/
 
-    scanflush() ;                       // flush any text that may have been typed ahead
-    printf("\r\nEnter Integer: ") ;
-    scanf("%d", &i) ;
-    printf("You entered %d", i) ;
-
-    sprintf(text, "Hello CPEN 412 Student") ;
-    LCDLine1Message(text) ;
-
-    printf("\r\nHello CPEN 412 Student\r\nYour LEDs should be Flashing") ;
-    printf("\r\nYour LCD should be displaying") ;
-
-    while(1)
-        ;
-
-   // programs should NOT exit as there is nothing to Exit TO !!!!!!
-   // There is no OS - just press the reset button to end program and call debug
+    while(1);
 }

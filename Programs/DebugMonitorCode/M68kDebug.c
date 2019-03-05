@@ -8,6 +8,11 @@
 #define TopOfStack 0x08040000
 //#define TopOfStack 0x0C000000
 
+#define PROGRAM_BASE_ADDRESS 0x08000000
+
+#define   Enable_SPI_CS()             SPI_CS = 0xFE
+#define   Disable_SPI_CS()            SPI_CS = 0xFF 
+
 /* DO NOT INITIALISE GLOBAL VARIABLES - DO IT in MAIN() */
 unsigned int i, x, y, z, PortA_Count;
 int     Trace, GoFlag, Echo;                       // used in tracing/single stepping
@@ -514,6 +519,166 @@ void MemoryChange(void)
     }
 }
 
+/******************************************************************************************
+** The following code is for the SPI controller
+*******************************************************************************************/
+// return true if the SPI has finished transmitting a byte (to say the Flash chip) return false otherwise
+// this can be used in a polling algorithm to know when the controller is busy or idle.
+
+int TestForSPITransmitDataComplete(void)    {
+
+    /* TODO replace 0 below with a test for status register SPIF bit and if set, return true */
+    return (SPI_Status>>7);
+}
+
+/************************************************************************************
+** initialises the SPI controller chip to set speed, interrupt capability etc.
+************************************************************************************/
+void SPI_Init(void)
+{
+    //TODO
+    //
+    // Program the SPI Control, EXT, CS and Status registers to initialise the SPI controller
+    // Don't forget to call this routine from main() before you do anything else with SPI
+    //
+    // Here are some settings we want to create
+    //
+    // Control Reg     - interrupts disabled, core enabled, Master mode, Polarity and Phase of clock = [0,0], speed =  divide by 32 = approx 700Khz
+    // Ext Reg         - in conjunction with control reg, sets speed above and also sets interrupt flag after every completed transfer (each byte)
+    // SPI_CS Reg      - control selection of slave SPI chips via their CS# signals
+    // Status Reg      - status of SPI controller chip and used to clear any write collision and interrupt on transmit complete flag
+    
+    // ControlRegister_t tempControl; 
+    // memset(&SPI_Control, 0, sizeof(unsigned char)); 
+    // memset(&tempControl, 0, sizeof(ControlRegister_t));
+    // tempControl.SPIE = 0; 
+    // tempControl.SPE = 1; 
+    // tempControl.MSTR = 1; 
+    // tempControl.CPOL = 0;
+    // tempControl.CPHA = 0; 
+    // tempControl.SPR = 3; 
+    // SPI_Control = (volatile unsigned char)tempControl; 
+    
+    // SPI_Control = (unsigned char)0b01010011; 
+    SPI_Control = (unsigned char)0x53;
+    SPI_Ext = (unsigned char)0x00; 
+    Disable_SPI_CS(); 
+}
+
+/************************************************************************************
+** return ONLY when the SPI controller has finished transmitting a byte
+************************************************************************************/
+void WaitForSPITransmitComplete(void)
+{
+    // TODO : poll the status register SPIF bit looking for completion of transmission
+    // once transmission is complete, clear the write collision and interrupt on transmit complete flags in the status register (read documentation)
+    // just in case they were set
+    // while ((SPI_Status>>7)==0);
+    while (1) {
+        if (SPI_Status & (unsigned char)0x80) {
+            break;
+        }
+    }
+    // SPI_Status &= 0x3F; // And with 00111111 to clear top two bits
+    SPI_Status = (unsigned char)0xC0;  
+}
+
+/************************************************************************************
+** Write a byte to the SPI flash chip via the controller and returns (reads) whatever was
+** given back by SPI device at the same time (removes the read byte from the FIFO)
+************************************************************************************/
+int WriteSPIChar(int c)
+{
+    // todo - write the byte in parameter 'c' to the SPI data register, this will start it transmitting to the flash device
+    // wait for completion of transmission
+    // return the received data from Flash chip (which may not be relevent depending upon what we are doing)
+    // by reading fom the SPI controller Data Register.
+    // note however that in order to get data from an SPI slave device (e.g. flash) chip we have to write a dummy byte to it
+    //
+    // modify '0' below to return back read byte from data register
+    //
+    unsigned char temp;
+
+    // Load data register
+    SPI_Data = (unsigned char)c; 
+
+    // Poll for completion 
+    WaitForSPITransmitComplete(); 
+
+    temp = SPI_Data;
+    // printf("\r\nRead: %x", temp);
+    // Read data register
+    return (int)temp;  
+                
+}
+
+void ChipErase() {
+    // wren
+    Enable_SPI_CS();
+    WriteSPIChar(0x06);
+    Disable_SPI_CS(); 
+
+    //chip erase
+    Enable_SPI_CS();
+    WriteSPIChar(0x60);
+    Disable_SPI_CS(); 
+
+    //wait for WIP
+    Enable_SPI_CS();
+    WriteSPIChar(0x05);
+    while((WriteSPIChar(0x55)&0x01) == 1);
+    Disable_SPI_CS();
+}
+
+void WriteData(int startAddress, unsigned char *dataArray, int numBytes) {
+    int i = 0;
+    
+    // wren command
+    Enable_SPI_CS();
+    WriteSPIChar(0x06);
+    Disable_SPI_CS(); 
+    
+
+    // write command
+    Enable_SPI_CS();
+    WriteSPIChar(0x02); //page program command
+
+    WriteSPIChar(startAddress>>16); //addres high
+    WriteSPIChar(startAddress>>8); // address middle
+    WriteSPIChar(startAddress); //address low
+
+    //stream data
+    for (i; i < numBytes; i++) {
+        WriteSPIChar((int)dataArray[i]);
+    }
+    
+    Disable_SPI_CS();
+
+    //wait for internal writing    
+    Enable_SPI_CS();
+    WriteSPIChar(0x05);
+    while((WriteSPIChar(0x55)&0x01) == 1);
+    Disable_SPI_CS();
+}
+
+void ReadData(int startAddress, int numBytes, unsigned char *data) {
+    int i = 0;
+
+    Enable_SPI_CS();
+    WriteSPIChar(0x03); //read command
+
+    WriteSPIChar(startAddress>>16); //addres high
+    WriteSPIChar(startAddress>>8); // address middle
+    WriteSPIChar(startAddress); //address low
+
+    //stream data
+    for (i; i < numBytes; i++) {
+        data[i] = (unsigned char)WriteSPIChar(0x55); //dummy byte
+    }
+
+    Disable_SPI_CS();
+}
+
 /*******************************************************************
 ** Write a program to SPI Flash Chip from memory and verify by reading back
 ********************************************************************/
@@ -524,6 +689,58 @@ void ProgramFlashChip(void)
     // TODO : put your code here to program the 1st 256k of ram (where user program is held at hex 08000000) to SPI flash chip
     // TODO : then verify by reading it back and comparing to memory
     //
+    unsigned int *RamPtr = PROGRAM_BASE_ADDRESS;
+    int i = 0;
+    unsigned char flashBytes[2], flashCheckBytes[2];
+    int ramWord;
+    bool dataNotCopied = 1;
+
+    printf("\r\nProgramming Flash...");
+
+    while (dataNotCopied) {
+        RamPtr = PROGRAM_BASE_ADDRESS;
+
+        ChipErase();
+
+        //write 256kBytes
+        for (i; i < 262144; i += 2) {
+            // get a word from ram
+            ramWord = *RamPtr;
+
+            //increment ram pointer to the next word
+            RamPtr++;
+
+            //parse the word
+            flashBytes[0] = (unsigned char)(ramWord >> 8);
+            flashBytes[1] = (unsigned char)ramWord;
+
+            //write the word as 2 bytes to flash
+            WriteData(i, flashBytes, sizeof(flashBytes));
+        }
+
+        //verify the data integrity, and repeat if it is not correct
+        RamPtr = PROGRAM_BASE_ADDRESS;
+        for (i; i < 262144; i += 2) {
+            // get a word from ram
+            ramWord = *RamPtr;
+
+            //increment ram pointer to the next word
+            RamPtr++;
+
+            //parse the word
+            flashBytes[0] = (unsigned char)(ramWord >> 8);
+            flashBytes[1] = (unsigned char)ramWord;
+
+            // read 2 bytes from flash
+            ReadData(i, sizeof(flashCheckBytes), flashCheckBytes);
+
+            // verify bytes were properly copied
+            if ( (flashBytes[0] != flashCheckBytes[0]) || (flashBytes[1] != flashCheckBytes[1]) ) {
+                dataNotCopied = 0;
+                break;  // successful copy, break and leave function
+            }
+        }
+    }
 }
 
 /*************************************************************************
@@ -531,11 +748,30 @@ void ProgramFlashChip(void)
 **************************************************************************/
 void LoadFromFlashChip(void)
 {
+    unsigned int *RamPtr = PROGRAM_BASE_ADDRESS;
+    int i = 0;
+    unsigned char flashBytes[2];
+    int ramWord;
+
     printf("\r\nLoading Program From SPI Flash....") ;
 
     //
     // TODO : put your code here to read 256k of data from SPI flash chip and store in user ram starting at hex 08000000
     //
+    for (i; i < 262144; i += 2) {
+        // read 2 bytes from flash
+        ReadData(i, sizeof(flashBytes), flashBytes);
+
+        // construct a word from the bytes and write to ram
+        ramWord = 0;
+        ramWord += (flashBytes[0] << 8);
+        ramWord += flashBytes[1];
+        *RamPtr = ramWord;
+
+        //increment ram pointer to the next word
+        RamPtr++;
+    }
+
 
 }
 
@@ -1585,6 +1821,8 @@ void main(void)
     FlushKeyboard() ;                        // dump unread characters from keyboard
     TraceException = 0 ;                     // clear trace exception port to remove any software generated single step/trace
 
+    //init SPI
+    SPI_Init();
 
     // test for auto flash boot and run from Flash by reading switch 9 on DE1-soc board. If set, copy program from flash into Dram and run
 
