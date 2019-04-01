@@ -2,6 +2,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "IIC_Driver.h"
+#include "ADC_DAC.h"
 
 
 //IMPORTANT
@@ -166,7 +167,6 @@ volatile unsigned long int counter, rollovers;
 
 int a[100][100], b[100][100], c[100][100];
 int i, j, k, sum;
-
 
 /*******************************************************************************************
 ** Function Prototypes
@@ -571,15 +571,67 @@ unsigned long int endTimer(void) {
 
 void main()
 {
+    unsigned char iicArray[512]; 
+    unsigned char readBuffer[512]; 
     unsigned char temp;
+    unsigned int address; 
+    unsigned int startingAddress = 0x40; 
+    int i; 
+    int length = 500; 
+
+    // Populate test array 
+    for (i=0; i<length; i++)
+    {
+        iicArray[i] = 0xFF; 
+    }
+    
     printf("\r\nInitializing IIC Controller");
     Init_IIC();
     printf("\r\nDone initialization, sending a byte...");
-    WriteByte(0xA6, 0x42, (unsigned int)0x55);
-    printf("\r\nDone writing!");
-    temp = ReadByte(0xA6, (unsigned int)0x55);
-    printf("\r\nRead back %x!", temp);
+    // WriteByte(0xA6, 0x42, (unsigned int)0x55);
+    // printf("\r\nDone writing!");
+    // temp = ReadByte(0xA6, (unsigned int)0x55);
+    // printf("\r\nRead back %x!", temp);
+    // Write_128_Bytes(0xA6, 0x00, iicArray); 
+    // temp = ReadByte(0xA6, 0x00);
+    // printf("\r\nRead back %x!", temp);
+    // temp = ReadByte(0xA6, 0x05);
+    // printf("\r\nRead back %x!", temp);
+    // temp = ReadByte(0xA6, 0x7F);
+    // printf("\r\nRead back %x!", temp);
+    // Read_128_Bytes(0xA6, 0x00, readBuffer); 
+    // for (i=0; i<128; i++)
+    // {
+    //     printf("\r\nRead back %x!", readBuffer[i]);
+    // }
 
+    /**********************************************
+     * Testing Read/Write Bytes functions
+     **********************************************/
+
+    // WriteBytes(0xA6, startingAddress, iicArray, length); 
+    // ReadBytes(0xA6, startingAddress, readBuffer, length); 
+    // for (i=0; i<length; i++)
+    // {
+    //     printf("\r\nRead back %x from %x!", readBuffer[i], startingAddress+i);
+    // }
+
+    // temp = ReadByte(0xA6, 0x40);
+    // printf("\r\nRead back %x!", temp);
+    // temp = ReadByte(0xA6, 0x7f);
+    // printf("\r\nRead back %x!", temp);
+    // temp = ReadByte(0xA6, 0x80);
+    // printf("\r\nRead back %x!", temp);
+    // temp = ReadByte(0xA6, 0x81);
+    // printf("\r\nRead back %x!", temp);
+
+    // for (address = startingAddress; address < startingAddress+length; address++)
+    // {
+    //     temp = ReadByte(0xA6, address);
+    //     printf("\r\nRead back %x from %x!", temp, address);
+    // }
+
+    DigitalToAnalog(ADC_SLAVE_ADDRESS, iicArray, sizeof(iicArray)); 
 
     while(1);
 }

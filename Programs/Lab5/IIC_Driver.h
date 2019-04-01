@@ -1,6 +1,8 @@
 #ifndef __IIC_DRIVER_H__
 #define __IIC_DRIVER_H__
 
+
+
 // register locations
 #define IIC_BASE_ADDRESS 	0x00408000
 #define IIC_CLK_PRSCL_LO 	(IIC_BASE_ADDRESS)
@@ -51,5 +53,9 @@ void WaitForAck(void);
 void WriteByte(unsigned char address, unsigned char data, unsigned int eepromAddress);
 unsigned char ReadByte(unsigned char IICSlaveAddress, unsigned int EEPROMAddress);
 void WaitForInternalWrite(unsigned char IICSlaveAddress);
+void Write_128_Bytes(unsigned char IICSlaveAddress, unsigned int EEPROMAddress, unsigned char *iicArray);
+void Read_128_Bytes(unsigned char IICSlaveAddress, unsigned int EEPROMAddress, unsigned char *buffer); 
+void WriteBytes(unsigned char IICSlaveAddress, unsigned int EEPROMAddress, unsigned char *iicArray, unsigned int length);
+void ReadBytes(unsigned char IICSlaveAddress, unsigned int EEPROMAddress, unsigned char *buffer, unsigned int length); 
 
 #endif

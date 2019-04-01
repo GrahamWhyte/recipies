@@ -52,6 +52,13 @@ go_main         jsr       _main
 ; volatile unsigned char *IICRx = (unsigned char *)IIC_RECEIVE;
 ; volatile unsigned char *IICStatus = (unsigned char *)IIC_STATUS;
 ; volatile unsigned char *IICCommand = (unsigned char *)IIC_COMMAND;
+; // *IICClkPrescalerLow = (unsigned char *)IIC_CLK_PRSCL_LO;
+; // *IICClkPrescalerHigh = (unsigned char *)IIC_CLK_PRSCL_HI;
+; // *IICControl = (unsigned char *)IIC_CONTROL;
+; // *IICTx = (unsigned char *)IIC_TRANSMIT;
+; // *IICRx = (unsigned char *)IIC_RECEIVE;
+; // *IICStatus = (unsigned char *)IIC_STATUS;
+; // *IICCommand = (unsigned char *)IIC_COMMAND;
 ; /* Functions */
 ; void WaitForEndOfTransfer(void) {
 _WaitForEndOfTransfer:
@@ -280,18 +287,6 @@ WaitForInternalWrite_1:
 ; *IICCommand = STA | WR;	// set write bit
        move.l    _IICCommand.L,A0
        move.b    #144,(A0)
-; printf("\r\nChecking if internal write is done...");
-       pea       @iic_dr~1_1.L
-       jsr       _printf
-       addq.w    #4,A7
-; printf("\r\nStatus REg: %x", *IICStatus);
-       move.l    _IICStatus.L,A0
-       move.b    (A0),D1
-       and.l     #255,D1
-       move.l    D1,-(A7)
-       pea       @iic_dr~1_2.L
-       jsr       _printf
-       addq.w    #8,A7
 ; WaitForEndOfTransfer();
        jsr       _WaitForEndOfTransfer
        jsr       _EEPROMInternalWritting
@@ -301,11 +296,816 @@ WaitForInternalWrite_1:
        rts
 ; } while (!EEPROMInternalWritting());
 ; }
+; void Write_128_Bytes(unsigned char IICSlaveAddress, unsigned int EEPROMAddress, unsigned char *iicArray) {
+_Write_128_Bytes:
+       link      A6,#-4
+       movem.l   D2/D3/A2/A3/A4/A5,-(A7)
+       lea       _WaitForAck.L,A2
+       lea       _WaitForEndOfTransfer.L,A3
+       lea       _IICCommand.L,A4
+       lea       _IICTx.L,A5
+       move.l    12(A6),D3
+; int i; 
+; unsigned char blockSelect = (unsigned char)EEPROMAddress>>16; 
+       move.l    D3,D0
+       lsr.b     #8,D0
+       lsr.b     #8,D0
+       move.b    D0,-3(A6)
+; unsigned char EEPROMAddress_High = (unsigned char)(EEPROMAddress>>8); 
+       move.l    D3,D0
+       lsr.l     #8,D0
+       move.b    D0,-2(A6)
+; unsigned char EEPROMAddress_Low = (unsigned char)EEPROMAddress; 
+       move.b    D3,-1(A6)
+; IICSlaveAddress |= (blockSelect << 3);  
+       move.b    -3(A6),D0
+       lsl.b     #3,D0
+       or.b      D0,11(A6)
+; // Transfer IIC Slave Address
+; WaitForInternalWrite(IICSlaveAddress);
+       move.b    11(A6),D1
+       and.l     #255,D1
+       move.l    D1,-(A7)
+       jsr       _WaitForInternalWrite
+       addq.w    #4,A7
+; // Transfer High EEProm Address
+; *IICTx = EEPROMAddress_High;	// fill the tx shift register
+       move.l    (A5),A0
+       move.b    -2(A6),(A0)
+; *IICCommand = WR;	// set write bit
+       move.l    (A4),A0
+       move.b    #16,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A3)
+; WaitForAck();
+       jsr       (A2)
+; // Transfer Low EEProm Address
+; *IICTx = EEPROMAddress_Low;	// fill the tx shift register
+       move.l    (A5),A0
+       move.b    -1(A6),(A0)
+; *IICCommand = WR;	// set write bit
+       move.l    (A4),A0
+       move.b    #16,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A3)
+; WaitForAck();
+       jsr       (A2)
+; for (i=0; i<127; i++)
+       clr.l     D2
+Write_128_Bytes_1:
+       cmp.l     #127,D2
+       bge.s     Write_128_Bytes_3
+; {
+; *IICTx = iicArray[i];
+       move.l    16(A6),A0
+       move.l    (A5),A1
+       move.b    0(A0,D2.L),(A1)
+; *IICCommand = WR;	// set write bit
+       move.l    (A4),A0
+       move.b    #16,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A3)
+; WaitForAck();
+       jsr       (A2)
+       addq.l    #1,D2
+       bra       Write_128_Bytes_1
+Write_128_Bytes_3:
+; }
+; // Send Data
+; *IICTx = iicArray[127];
+       move.l    16(A6),A0
+       move.l    (A5),A1
+       move.b    127(A0),(A1)
+; *IICCommand = WR | STO;	//send stop signal
+       move.l    (A4),A0
+       move.b    #80,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A3)
+; WaitForAck();
+       jsr       (A2)
+       movem.l   (A7)+,D2/D3/A2/A3/A4/A5
+       unlk      A6
+       rts
+; }
+; void Read_128_Bytes(unsigned char IICSlaveAddress, unsigned int EEPROMAddress, unsigned char *buffer){
+_Read_128_Bytes:
+       link      A6,#-4
+       movem.l   D2/D3/D4/A2/A3/A4/A5,-(A7)
+       lea       _WaitForEndOfTransfer.L,A2
+       lea       _IICCommand.L,A3
+       lea       _WaitForAck.L,A4
+       lea       _IICTx.L,A5
+       move.b    11(A6),D3
+       and.l     #255,D3
+       move.l    12(A6),D4
+; int i; 
+; unsigned char blockSelect = (unsigned char)EEPROMAddress>>16; 
+       move.l    D4,D0
+       lsr.b     #8,D0
+       lsr.b     #8,D0
+       move.b    D0,-3(A6)
+; unsigned char EEPROMAddress_High = (unsigned char)(EEPROMAddress>>8); 
+       move.l    D4,D0
+       lsr.l     #8,D0
+       move.b    D0,-2(A6)
+; unsigned char EEPROMAddress_Low = (unsigned char)EEPROMAddress; 
+       move.b    D4,-1(A6)
+; IICSlaveAddress |= (blockSelect << 3);  
+       move.b    -3(A6),D0
+       lsl.b     #3,D0
+       or.b      D0,D3
+; // Transfer IIC Slave Address
+; WaitForInternalWrite(IICSlaveAddress);
+       and.l     #255,D3
+       move.l    D3,-(A7)
+       jsr       _WaitForInternalWrite
+       addq.w    #4,A7
+; // Transfer High EEProm Address
+; *IICTx = EEPROMAddress_High;	// fill the tx shift register
+       move.l    (A5),A0
+       move.b    -2(A6),(A0)
+; *IICCommand = WR;	// set write bit
+       move.l    (A3),A0
+       move.b    #16,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A2)
+; WaitForAck();
+       jsr       (A4)
+; // Transfer Low EEProm Address
+; *IICTx = EEPROMAddress_Low;	// fill the tx shift register
+       move.l    (A5),A0
+       move.b    -1(A6),(A0)
+; *IICCommand = WR;	// set write bit
+       move.l    (A3),A0
+       move.b    #16,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A2)
+; WaitForAck();
+       jsr       (A4)
+; // Fetch Data
+; *IICTx = IICSlaveAddress | READ;
+       move.b    D3,D0
+       or.b      #1,D0
+       move.l    (A5),A0
+       move.b    D0,(A0)
+; *IICCommand = WR | STA;	//send start signal
+       move.l    (A3),A0
+       move.b    #144,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A2)
+; WaitForAck();
+       jsr       (A4)
+; for (i=0; i<127; i++)
+       clr.l     D2
+Read_128_Bytes_1:
+       cmp.l     #127,D2
+       bge.s     Read_128_Bytes_3
+; {
+; *IICCommand = RD;
+       move.l    (A3),A0
+       move.b    #32,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A2)
+; buffer[i] = *IICRx; 
+       move.l    _IICRx.L,A0
+       move.l    16(A6),A1
+       move.b    (A0),0(A1,D2.L)
+       addq.l    #1,D2
+       bra       Read_128_Bytes_1
+Read_128_Bytes_3:
+; }
+; // read SDA line
+; *IICCommand = RD | STO | NACK;	//send stop signal
+       move.l    (A3),A0
+       move.b    #104,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A2)
+; buffer[127] = *IICRx; 
+       move.l    _IICRx.L,A0
+       move.l    16(A6),A1
+       move.b    (A0),127(A1)
+       movem.l   (A7)+,D2/D3/D4/A2/A3/A4/A5
+       unlk      A6
+       rts
+; }
+; void WriteBytes(unsigned char IICSlaveAddress, unsigned int EEPROMAddress, unsigned char *iicArray, unsigned int length){
+_WriteBytes:
+       link      A6,#-12
+       movem.l   D2/D3/D4/D5/D6/D7/A2/A3/A4/A5,-(A7)
+       move.l    12(A6),D4
+       lea       _IICCommand.L,A2
+       lea       _WaitForAck.L,A3
+       lea       _WaitForEndOfTransfer.L,A4
+       lea       _IICTx.L,A5
+       move.l    16(A6),D6
+       move.b    11(A6),D7
+       and.l     #255,D7
+; int i; 
+; unsigned char blockSelect = (unsigned char)EEPROMAddress>>16; 
+       move.l    D4,D0
+       lsr.b     #8,D0
+       lsr.b     #8,D0
+       move.b    D0,-11(A6)
+; unsigned char EEPROMAddress_High = (unsigned char)(EEPROMAddress>>8); 
+       move.l    D4,D0
+       lsr.l     #8,D0
+       move.b    D0,-10(A6)
+; unsigned char EEPROMAddress_Low = (unsigned char)EEPROMAddress; 
+       move.b    D4,-9(A6)
+; unsigned int bytesToWrite; 
+; unsigned char lengthFlag = 0; 
+       clr.b     -3(A6)
+; int lengthCopy = (int)length;  
+       move.l    20(A6),D5
+; unsigned int CurrentAddress = EEPROMAddress; 
+       move.l    D4,D2
+; unsigned char CurrentAddress_High;
+; unsigned char CurrentAddress_Low; 
+; IICSlaveAddress |= (blockSelect << 3);  
+       move.b    -11(A6),D0
+       lsl.b     #3,D0
+       or.b      D0,D7
+; // Transfer IIC Slave Address
+; WaitForInternalWrite(IICSlaveAddress);
+       and.l     #255,D7
+       move.l    D7,-(A7)
+       jsr       _WaitForInternalWrite
+       addq.w    #4,A7
+; // Transfer High EEProm Address
+; *IICTx = EEPROMAddress_High;	// fill the tx shift register
+       move.l    (A5),A0
+       move.b    -10(A6),(A0)
+; *IICCommand = WR;	// set write bit
+       move.l    (A2),A0
+       move.b    #16,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A4)
+; WaitForAck();
+       jsr       (A3)
+; // Transfer Low EEProm Address
+; *IICTx = EEPROMAddress_Low;	// fill the tx shift register
+       move.l    (A5),A0
+       move.b    -9(A6),(A0)
+; *IICCommand = WR;	// set write bit
+       move.l    (A2),A0
+       move.b    #16,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A4)
+; WaitForAck();
+       jsr       (A3)
+; // Check difference between starting address and next block 
+; bytesToWrite = 128-EEPROMAddress%128; 
+       move.w    #128,D0
+       ext.l     D0
+       move.l    D4,-(A7)
+       pea       128
+       jsr       ULDIV
+       move.l    4(A7),D1
+       addq.w    #8,A7
+       sub.l     D1,D0
+       move.l    D0,-8(A6)
+; // First block 
+; for (i=0; i<bytesToWrite; i++)
+       clr.l     D3
+WriteBytes_1:
+       cmp.l     -8(A6),D3
+       bhs       WriteBytes_3
+; {
+; printf("\r\nEntered First Block Loop"); 
+       pea       @iic_dr~1_1.L
+       jsr       _printf
+       addq.w    #4,A7
+; *IICTx = iicArray[i];
+       move.l    D6,A0
+       move.l    (A5),A1
+       move.b    0(A0,D3.L),(A1)
+; if ( (i+1 >= length) || (i==(bytesToWrite-1)))
+       move.l    D3,D0
+       addq.l    #1,D0
+       cmp.l     20(A6),D0
+       bhs.s     WriteBytes_6
+       move.l    -8(A6),D0
+       subq.l    #1,D0
+       cmp.l     D0,D3
+       bne.s     WriteBytes_4
+WriteBytes_6:
+; {
+; if (i+1 >= length)
+       move.l    D3,D0
+       addq.l    #1,D0
+       cmp.l     20(A6),D0
+       blo.s     WriteBytes_7
+; lengthFlag = 1;
+       move.b    #1,-3(A6)
+WriteBytes_7:
+; *IICCommand = WR | STO;	//send stop signal 
+       move.l    (A2),A0
+       move.b    #80,(A0)
+       bra.s     WriteBytes_5
+WriteBytes_4:
+; }
+; else
+; {
+; *IICCommand = WR;	// set write bit
+       move.l    (A2),A0
+       move.b    #16,(A0)
+WriteBytes_5:
+; }
+; WaitForEndOfTransfer();
+       jsr       (A4)
+; WaitForAck();
+       jsr       (A3)
+; lengthCopy--; 
+       subq.l    #1,D5
+; CurrentAddress++; 
+       addq.l    #1,D2
+; if (lengthFlag)
+       tst.b     -3(A6)
+       beq.s     WriteBytes_9
+; {
+; break; 
+       bra.s     WriteBytes_3
+WriteBytes_9:
+       addq.l    #1,D3
+       bra       WriteBytes_1
+WriteBytes_3:
+; }
+; }
+; // Other blocks
+; if (!lengthFlag)
+       tst.b     -3(A6)
+       bne       WriteBytes_16
+; {
+; // Complete blocks
+; while (lengthCopy >= 128)
+WriteBytes_13:
+       cmp.l     #128,D5
+       blt       WriteBytes_15
+; {
+; printf("\r\n Entered Intermediate Loop"); 
+       pea       @iic_dr~1_2.L
+       jsr       _printf
+       addq.w    #4,A7
+; printf("\r\n Current Address Index: %x", CurrentAddress-EEPROMAddress); 
+       move.l    D2,D1
+       sub.l     D4,D1
+       move.l    D1,-(A7)
+       pea       @iic_dr~1_3.L
+       jsr       _printf
+       addq.w    #8,A7
+; Write_128_Bytes(0xA6, CurrentAddress, &(iicArray[CurrentAddress-EEPROMAddress])); 
+       move.l    D6,D1
+       move.l    D0,-(A7)
+       move.l    D2,D0
+       sub.l     D4,D0
+       add.l     D0,D1
+       move.l    (A7)+,D0
+       move.l    D1,-(A7)
+       move.l    D2,-(A7)
+       pea       166
+       jsr       _Write_128_Bytes
+       add.w     #12,A7
+; CurrentAddress+=128; 
+       add.l     #128,D2
+; lengthCopy-=128; 
+       sub.l     #128,D5
+       bra       WriteBytes_13
+WriteBytes_15:
+; }
+; if (lengthCopy>0)
+       cmp.l     #0,D5
+       ble       WriteBytes_16
+; {
+; // Prepare for write to final block
+; blockSelect = (unsigned char)CurrentAddress>>16; 
+       move.l    D2,D0
+       lsr.b     #8,D0
+       lsr.b     #8,D0
+       move.b    D0,-11(A6)
+; CurrentAddress_High = (unsigned char)(CurrentAddress>>8);
+       move.l    D2,D0
+       lsr.l     #8,D0
+       move.b    D0,-2(A6)
+; CurrentAddress_Low = (unsigned char)(CurrentAddress);
+       move.b    D2,-1(A6)
+; IICSlaveAddress |= (blockSelect << 3);  
+       move.b    -11(A6),D0
+       lsl.b     #3,D0
+       or.b      D0,D7
+; // Transfer IIC Slave Address
+; WaitForInternalWrite(IICSlaveAddress);
+       and.l     #255,D7
+       move.l    D7,-(A7)
+       jsr       _WaitForInternalWrite
+       addq.w    #4,A7
+; // Transfer High EEProm Address
+; *IICTx = CurrentAddress_High;	// fill the tx shift register
+       move.l    (A5),A0
+       move.b    -2(A6),(A0)
+; *IICCommand = WR;	// set write bit
+       move.l    (A2),A0
+       move.b    #16,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A4)
+; WaitForAck();
+       jsr       (A3)
+; // Transfer Low EEProm Address
+; *IICTx = CurrentAddress_Low;	// fill the tx shift register
+       move.l    (A5),A0
+       move.b    -1(A6),(A0)
+; *IICCommand = WR;	// set write bit
+       move.l    (A2),A0
+       move.b    #16,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A4)
+; WaitForAck();
+       jsr       (A3)
+; // Last block
+; for (i=0; i<lengthCopy-1; i++)
+       clr.l     D3
+WriteBytes_18:
+       move.l    D5,D0
+       subq.l    #1,D0
+       cmp.l     D0,D3
+       bge       WriteBytes_20
+; {
+; printf("\r\n Entered Last Block Loop"); 
+       pea       @iic_dr~1_4.L
+       jsr       _printf
+       addq.w    #4,A7
+; printf("\r\n Current Address Index: %x", CurrentAddress-EEPROMAddress); 
+       move.l    D2,D1
+       sub.l     D4,D1
+       move.l    D1,-(A7)
+       pea       @iic_dr~1_3.L
+       jsr       _printf
+       addq.w    #8,A7
+; *IICTx = iicArray[CurrentAddress-EEPROMAddress];
+       move.l    D6,A0
+       move.l    D2,D0
+       sub.l     D4,D0
+       move.l    (A5),A1
+       move.b    0(A0,D0.L),(A1)
+; *IICCommand = WR;	// set write bit
+       move.l    (A2),A0
+       move.b    #16,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A4)
+; WaitForAck();
+       jsr       (A3)
+; CurrentAddress+=1; 
+       addq.l    #1,D2
+       addq.l    #1,D3
+       bra       WriteBytes_18
+WriteBytes_20:
+; }
+; // Final byte
+; *IICTx = iicArray[CurrentAddress-EEPROMAddress];
+       move.l    D6,A0
+       move.l    D2,D0
+       sub.l     D4,D0
+       move.l    (A5),A1
+       move.b    0(A0,D0.L),(A1)
+; *IICCommand = WR | STO;	// set write bit
+       move.l    (A2),A0
+       move.b    #80,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A4)
+; WaitForAck();
+       jsr       (A3)
+WriteBytes_16:
+; }
+; }
+; printf("\r\n Exited All Loops"); 
+       pea       @iic_dr~1_5.L
+       jsr       _printf
+       addq.w    #4,A7
+       movem.l   (A7)+,D2/D3/D4/D5/D6/D7/A2/A3/A4/A5
+       unlk      A6
+       rts
+; }
+; void ReadBytes(unsigned char IICSlaveAddress, unsigned int EEPROMAddress, unsigned char *buffer, unsigned int length){
+_ReadBytes:
+       link      A6,#-12
+       movem.l   D2/D3/D4/D5/D6/D7/A2/A3/A4/A5,-(A7)
+       lea       _IICCommand.L,A2
+       move.l    12(A6),D4
+       lea       _WaitForEndOfTransfer.L,A3
+       lea       _printf.L,A4
+       lea       _WaitForAck.L,A5
+       move.b    11(A6),D5
+       and.l     #255,D5
+       move.l    16(A6),D7
+; int i; 
+; unsigned char blockSelect = (unsigned char)EEPROMAddress>>16; 
+       move.l    D4,D0
+       lsr.b     #8,D0
+       lsr.b     #8,D0
+       move.b    D0,-11(A6)
+; unsigned char EEPROMAddress_High = (unsigned char)(EEPROMAddress>>8); 
+       move.l    D4,D0
+       lsr.l     #8,D0
+       move.b    D0,-10(A6)
+; unsigned char EEPROMAddress_Low = (unsigned char)EEPROMAddress; 
+       move.b    D4,-9(A6)
+; unsigned int bytesToRead; 
+; unsigned char lengthFlag = 0; 
+       clr.b     -3(A6)
+; int lengthCopy = (int)length;  
+       move.l    20(A6),D6
+; unsigned int CurrentAddress = EEPROMAddress; 
+       move.l    D4,D2
+; unsigned char CurrentAddress_High;
+; unsigned char CurrentAddress_Low; 
+; IICSlaveAddress |= (blockSelect << 3);  
+       move.b    -11(A6),D0
+       lsl.b     #3,D0
+       or.b      D0,D5
+; // Transfer IIC Slave Address
+; WaitForInternalWrite(IICSlaveAddress);
+       and.l     #255,D5
+       move.l    D5,-(A7)
+       jsr       _WaitForInternalWrite
+       addq.w    #4,A7
+; // Transfer High EEProm Address
+; *IICTx = EEPROMAddress_High;	// fill the tx shift register
+       move.l    _IICTx.L,A0
+       move.b    -10(A6),(A0)
+; *IICCommand = WR;	// set write bit
+       move.l    (A2),A0
+       move.b    #16,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A3)
+; WaitForAck();
+       jsr       (A5)
+; // Transfer Low EEProm Address
+; *IICTx = EEPROMAddress_Low;	// fill the tx shift register
+       move.l    _IICTx.L,A0
+       move.b    -9(A6),(A0)
+; *IICCommand = WR;	// set write bit
+       move.l    (A2),A0
+       move.b    #16,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A3)
+; WaitForAck();
+       jsr       (A5)
+; // Fetch Data
+; *IICTx = IICSlaveAddress | READ;
+       move.b    D5,D0
+       or.b      #1,D0
+       move.l    _IICTx.L,A0
+       move.b    D0,(A0)
+; *IICCommand = WR | STA;	//send start signal
+       move.l    (A2),A0
+       move.b    #144,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A3)
+; WaitForAck();
+       jsr       (A5)
+; // Check difference between starting address and next block 
+; bytesToRead = 128-EEPROMAddress%128; 
+       move.w    #128,D0
+       ext.l     D0
+       move.l    D4,-(A7)
+       pea       128
+       jsr       ULDIV
+       move.l    4(A7),D1
+       addq.w    #8,A7
+       sub.l     D1,D0
+       move.l    D0,-8(A6)
+; // First block 
+; for (i=0; i<bytesToRead; i++)
+       clr.l     D3
+ReadBytes_1:
+       cmp.l     -8(A6),D3
+       bhs       ReadBytes_3
+; {
+; printf("\r\nEntered First Block Loop"); 
+       pea       @iic_dr~1_1.L
+       jsr       (A4)
+       addq.w    #4,A7
+; if ( (i+1 >= length) || (i==(bytesToRead-1)))
+       move.l    D3,D0
+       addq.l    #1,D0
+       cmp.l     20(A6),D0
+       bhs.s     ReadBytes_6
+       move.l    -8(A6),D0
+       subq.l    #1,D0
+       cmp.l     D0,D3
+       bne.s     ReadBytes_4
+ReadBytes_6:
+; {
+; if (i+1 >= length)
+       move.l    D3,D0
+       addq.l    #1,D0
+       cmp.l     20(A6),D0
+       blo.s     ReadBytes_7
+; lengthFlag = 1;
+       move.b    #1,-3(A6)
+ReadBytes_7:
+; *IICCommand = RD | STO | NACK;	//send stop signal 
+       move.l    (A2),A0
+       move.b    #104,(A0)
+       bra.s     ReadBytes_5
+ReadBytes_4:
+; }
+; else
+; {
+; *IICCommand = RD;	// set write bit
+       move.l    (A2),A0
+       move.b    #32,(A0)
+ReadBytes_5:
+; }
+; WaitForEndOfTransfer();
+       jsr       (A3)
+; buffer[i] = *IICRx; 
+       move.l    _IICRx.L,A0
+       move.l    D7,A1
+       move.b    (A0),0(A1,D3.L)
+; lengthCopy--; 
+       subq.l    #1,D6
+; CurrentAddress++; 
+       addq.l    #1,D2
+; if (lengthFlag)
+       tst.b     -3(A6)
+       beq.s     ReadBytes_9
+; {
+; break; 
+       bra.s     ReadBytes_3
+ReadBytes_9:
+       addq.l    #1,D3
+       bra       ReadBytes_1
+ReadBytes_3:
+; }
+; }
+; // Other blocks
+; if (!lengthFlag)
+       tst.b     -3(A6)
+       bne       ReadBytes_16
+; {
+; // Complete blocks
+; while (lengthCopy >= 128)
+ReadBytes_13:
+       cmp.l     #128,D6
+       blt       ReadBytes_15
+; {
+; printf("\r\n Entered Intermediate Loop"); 
+       pea       @iic_dr~1_2.L
+       jsr       (A4)
+       addq.w    #4,A7
+; printf("\r\n Current Address Index: %x", CurrentAddress-EEPROMAddress); 
+       move.l    D2,D1
+       sub.l     D4,D1
+       move.l    D1,-(A7)
+       pea       @iic_dr~1_3.L
+       jsr       (A4)
+       addq.w    #8,A7
+; Read_128_Bytes(0xA6, CurrentAddress, &(buffer[CurrentAddress-EEPROMAddress])); 
+       move.l    D7,D1
+       move.l    D0,-(A7)
+       move.l    D2,D0
+       sub.l     D4,D0
+       add.l     D0,D1
+       move.l    (A7)+,D0
+       move.l    D1,-(A7)
+       move.l    D2,-(A7)
+       pea       166
+       jsr       _Read_128_Bytes
+       add.w     #12,A7
+; CurrentAddress+=128; 
+       add.l     #128,D2
+; lengthCopy-=128; 
+       sub.l     #128,D6
+       bra       ReadBytes_13
+ReadBytes_15:
+; }
+; if (lengthCopy>0)
+       cmp.l     #0,D6
+       ble       ReadBytes_16
+; {
+; // Prepare for write to final block
+; blockSelect = (unsigned char)CurrentAddress>>16; 
+       move.l    D2,D0
+       lsr.b     #8,D0
+       lsr.b     #8,D0
+       move.b    D0,-11(A6)
+; CurrentAddress_High = (unsigned char)(CurrentAddress>>8);
+       move.l    D2,D0
+       lsr.l     #8,D0
+       move.b    D0,-2(A6)
+; CurrentAddress_Low = (unsigned char)(CurrentAddress);
+       move.b    D2,-1(A6)
+; IICSlaveAddress |= (blockSelect << 3);  
+       move.b    -11(A6),D0
+       lsl.b     #3,D0
+       or.b      D0,D5
+; // Transfer IIC Slave Address
+; WaitForInternalWrite(IICSlaveAddress);
+       and.l     #255,D5
+       move.l    D5,-(A7)
+       jsr       _WaitForInternalWrite
+       addq.w    #4,A7
+; // Transfer High EEProm Address
+; *IICTx = CurrentAddress_High;	// fill the tx shift register
+       move.l    _IICTx.L,A0
+       move.b    -2(A6),(A0)
+; *IICCommand = WR;	// set write bit
+       move.l    (A2),A0
+       move.b    #16,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A3)
+; WaitForAck();
+       jsr       (A5)
+; // Transfer Low EEProm Address
+; *IICTx = CurrentAddress_Low;	// fill the tx shift register
+       move.l    _IICTx.L,A0
+       move.b    -1(A6),(A0)
+; *IICCommand = WR;	// set write bit
+       move.l    (A2),A0
+       move.b    #16,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A3)
+; WaitForAck();
+       jsr       (A5)
+; // Fetch Data
+; *IICTx = IICSlaveAddress | READ;
+       move.b    D5,D0
+       or.b      #1,D0
+       move.l    _IICTx.L,A0
+       move.b    D0,(A0)
+; *IICCommand = WR | STA;	//send start signal
+       move.l    (A2),A0
+       move.b    #144,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A3)
+; WaitForAck();
+       jsr       (A5)
+; // Last block
+; for (i=0; i<lengthCopy-1; i++)
+       clr.l     D3
+ReadBytes_18:
+       move.l    D6,D0
+       subq.l    #1,D0
+       cmp.l     D0,D3
+       bge       ReadBytes_20
+; {
+; printf("\r\n Entered Last Block Loop"); 
+       pea       @iic_dr~1_4.L
+       jsr       (A4)
+       addq.w    #4,A7
+; printf("\r\n Current Address Index: %x", CurrentAddress-EEPROMAddress); 
+       move.l    D2,D1
+       sub.l     D4,D1
+       move.l    D1,-(A7)
+       pea       @iic_dr~1_3.L
+       jsr       (A4)
+       addq.w    #8,A7
+; *IICCommand = RD;	// set read bit
+       move.l    (A2),A0
+       move.b    #32,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A3)
+; buffer[CurrentAddress-EEPROMAddress] = *IICRx; 
+       move.l    _IICRx.L,A0
+       move.l    D7,A1
+       move.l    D2,D0
+       sub.l     D4,D0
+       move.b    (A0),0(A1,D0.L)
+; CurrentAddress+=1; 
+       addq.l    #1,D2
+       addq.l    #1,D3
+       bra       ReadBytes_18
+ReadBytes_20:
+; }
+; // Final byte
+; *IICCommand = RD | STO | NACK;	// set read bit
+       move.l    (A2),A0
+       move.b    #104,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A3)
+; buffer[CurrentAddress-EEPROMAddress] = *IICRx; 
+       move.l    _IICRx.L,A0
+       move.l    D7,A1
+       move.l    D2,D0
+       sub.l     D4,D0
+       move.b    (A0),0(A1,D0.L)
+ReadBytes_16:
+; }
+; }
+; printf("\r\n Exited All Loops"); 
+       pea       @iic_dr~1_5.L
+       jsr       (A4)
+       addq.w    #4,A7
+       movem.l   (A7)+,D2/D3/D4/D5/D6/D7/A2/A3/A4/A5
+       unlk      A6
+       rts
+; }
 ; C:\M68KV6.0 - 640BY480\M68KV6.0 - 800BY480 - (VERILOG) FOR STUDENTS\PROGRAMS\LAB5\M68KUSERPROGRAM (DE1).C - Compiled by CC68K  Version 5.00 (c) 1991-2005  Peter J. Fondse
 ; #include <stdio.h>
 ; #include <string.h>
 ; #include <ctype.h>
 ; #include "IIC_Driver.h"
+; #include "ADC_DAC.h"
 ; //IMPORTANT
 ; //
 ; // Uncomment one of the two #defines below
@@ -1134,47 +1934,268 @@ _endTimer:
 ; void main()
 ; {
 _main:
-       link      A6,#-4
-       move.l    A2,-(A7)
-       lea       _printf.L,A2
+       link      A6,#-1040
+       move.l    D2,-(A7)
+; unsigned char iicArray[512]; 
+; unsigned char readBuffer[512]; 
 ; unsigned char temp;
+; unsigned int address; 
+; unsigned int startingAddress = 0x40; 
+       move.l    #64,-8(A6)
+; int i; 
+; int length = 500; 
+       move.l    #500,-4(A6)
+; // Populate test array 
+; for (i=0; i<length; i++)
+       clr.l     D2
+main_1:
+       cmp.l     -4(A6),D2
+       bge.s     main_3
+; {
+; iicArray[i] = 0xFF; 
+       lea       -1038(A6),A0
+       move.b    #255,0(A0,D2.L)
+       addq.l    #1,D2
+       bra       main_1
+main_3:
+; }
 ; printf("\r\nInitializing IIC Controller");
        pea       @m68kus~1_1.L
-       jsr       (A2)
+       jsr       _printf
        addq.w    #4,A7
 ; Init_IIC();
        jsr       _Init_IIC
 ; printf("\r\nDone initialization, sending a byte...");
        pea       @m68kus~1_2.L
-       jsr       (A2)
+       jsr       _printf
        addq.w    #4,A7
-; WriteByte(0xA6, 0x42, (unsigned int)0x55);
-       pea       85
-       pea       66
-       pea       166
-       jsr       _WriteByte
+; // WriteByte(0xA6, 0x42, (unsigned int)0x55);
+; // printf("\r\nDone writing!");
+; // temp = ReadByte(0xA6, (unsigned int)0x55);
+; // printf("\r\nRead back %x!", temp);
+; // Write_128_Bytes(0xA6, 0x00, iicArray); 
+; // temp = ReadByte(0xA6, 0x00);
+; // printf("\r\nRead back %x!", temp);
+; // temp = ReadByte(0xA6, 0x05);
+; // printf("\r\nRead back %x!", temp);
+; // temp = ReadByte(0xA6, 0x7F);
+; // printf("\r\nRead back %x!", temp);
+; // Read_128_Bytes(0xA6, 0x00, readBuffer); 
+; // for (i=0; i<128; i++)
+; // {
+; //     printf("\r\nRead back %x!", readBuffer[i]);
+; // }
+; /**********************************************
+; * Testing Read/Write Bytes functions
+; **********************************************/
+; // WriteBytes(0xA6, startingAddress, iicArray, length); 
+; // ReadBytes(0xA6, startingAddress, readBuffer, length); 
+; // for (i=0; i<length; i++)
+; // {
+; //     printf("\r\nRead back %x from %x!", readBuffer[i], startingAddress+i);
+; // }
+; // temp = ReadByte(0xA6, 0x40);
+; // printf("\r\nRead back %x!", temp);
+; // temp = ReadByte(0xA6, 0x7f);
+; // printf("\r\nRead back %x!", temp);
+; // temp = ReadByte(0xA6, 0x80);
+; // printf("\r\nRead back %x!", temp);
+; // temp = ReadByte(0xA6, 0x81);
+; // printf("\r\nRead back %x!", temp);
+; // for (address = startingAddress; address < startingAddress+length; address++)
+; // {
+; //     temp = ReadByte(0xA6, address);
+; //     printf("\r\nRead back %x from %x!", temp, address);
+; // }
+; DigitalToAnalog(ADC_SLAVE_ADDRESS, iicArray, sizeof(iicArray)); 
+       pea       512
+       pea       -1038(A6)
+       pea       158
+       jsr       _DigitalToAnalog
        add.w     #12,A7
-; printf("\r\nDone writing!");
-       pea       @m68kus~1_3.L
-       jsr       (A2)
-       addq.w    #4,A7
-; temp = ReadByte(0xA6, (unsigned int)0x55);
-       pea       85
-       pea       166
-       jsr       _ReadByte
-       addq.w    #8,A7
-       move.b    D0,-1(A6)
-; printf("\r\nRead back %x!", temp);
-       move.b    -1(A6),D1
-       and.l     #255,D1
-       move.l    D1,-(A7)
-       pea       @m68kus~1_4.L
-       jsr       (A2)
-       addq.w    #8,A7
 ; while(1);
-main_1:
-       bra       main_1
+main_4:
+       bra       main_4
 ; }
+; C:\M68KV6.0 - 640BY480\M68KV6.0 - 800BY480 - (VERILOG) FOR STUDENTS\PROGRAMS\LAB5\ADC_DAC.C - Compiled by CC68K  Version 5.00 (c) 1991-2005  Peter J. Fondse
+; #include <stdio.h> 
+; #include "IIC_Driver.h"
+; #include "ADC_DAC.h"
+; // Globals
+; volatile unsigned char *IICTx_ = (unsigned char *)IIC_TRANSMIT;
+; volatile unsigned char *IICRx_ = (unsigned char *)IIC_RECEIVE;
+; volatile unsigned char *IICCommand_ = (unsigned char *)IIC_COMMAND;
+; /* Functions */ 
+; void DigitalToAnalog(unsigned char slaveAddress, unsigned char *data, unsigned int size) {
+_DigitalToAnalog:
+       link      A6,#0
+       movem.l   D2/A2/A3/A4/A5,-(A7)
+       lea       _WaitForAck.L,A2
+       lea       _WaitForEndOfTransfer.L,A3
+       lea       _IICCommand_.L,A4
+       lea       _IICTx_.L,A5
+; int i; 
+; // Generate IIC start signal
+; *IICTx_ = slaveAddress | WRITE;	// fill the tx shift register
+       move.b    11(A6),D0
+       or.b      #0,D0
+       move.l    (A5),A0
+       move.b    D0,(A0)
+; *IICCommand_ = STA | WR;	// set write bit
+       move.l    (A4),A0
+       move.b    #144,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A3)
+; WaitForAck(); 
+       jsr       (A2)
+; printf("\r\n Generated Start Signal"); 
+       pea       @adc_dac_1.L
+       jsr       _printf
+       addq.w    #4,A7
+; // Send Control Byte 
+; *IICTx_ = ANALOG_OUTPUT_ENABLE | SINGLE_ENDED | AD_CH_0; 
+       move.l    (A5),A0
+       move.b    #64,(A0)
+; *IICCommand_ = WR;	// set write bit
+       move.l    (A4),A0
+       move.b    #16,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A3)
+; WaitForAck();
+       jsr       (A2)
+; printf("\r\n Sent Control Byte"); 
+       pea       @adc_dac_2.L
+       jsr       _printf
+       addq.w    #4,A7
+; // Steam Data Byte 
+; while (1)
+DigitalToAnalog_1:
+; {
+; for (i = 0; i < size; i++)
+       clr.l     D2
+DigitalToAnalog_4:
+       cmp.l     16(A6),D2
+       bhs.s     DigitalToAnalog_6
+; {
+; *IICTx_ = data[i]; 
+       move.l    12(A6),A0
+       move.l    (A5),A1
+       move.b    0(A0,D2.L),(A1)
+; *IICCommand_ = WR; 
+       move.l    (A4),A0
+       move.b    #16,(A0)
+; WaitForEndOfTransfer();
+       jsr       (A3)
+; WaitForAck();
+       jsr       (A2)
+       addq.l    #1,D2
+       bra       DigitalToAnalog_4
+DigitalToAnalog_6:
+       bra       DigitalToAnalog_1
+; }
+; }
+; }
+ULDIV:
+       link    A6,#0
+       movem.l D0/D1,-(A7)
+       move.l  8(A6),D1
+       move.l  12(A6),D0
+       bra.s   ldiv_3
+LDIV:
+       link    A6,#0
+       movem.l D0/D1,-(A7)
+       move.l  8(A6),D1
+       move.l  12(A6),D0
+       tst.l   D0
+       bpl.s   ldiv_1
+       neg.l   D0
+       tst.l   D1
+       bpl.s   ldiv_2
+       neg.l   D1
+       bsr.s   dodiv
+       neg.l   D1
+       bra.s   ldiv_4
+ldiv_1:
+       tst.l   D1
+       bpl.s   ldiv_3
+       neg.l   D1
+       bsr.s   dodiv
+       neg.l   D0
+       bra.s   ldiv_4
+ldiv_2:
+       bsr.s   dodiv
+       neg.l   D0
+       neg.l   D1
+       bra.s   ldiv_4
+ldiv_3:
+       bsr.s   dodiv
+ldiv_4:
+       move.l  D0,8(A6)
+       move.l  D1,12(A6)
+       movem.l (A7)+,D0/D1
+       unlk    A6
+       rts
+dodiv:
+       cmpi.l  #$FFFF,D1
+       bhi.s   dodiv_2
+       cmpi.l  #$FFFF,D0
+       bhi.s   dodiv_1
+       divu    D1,D0
+       move.l  D0,D1
+       clr.w   D1
+       swap    D1
+       andi.l  #$FFFF,D0
+       rts
+dodiv_1:
+       movem.w D0/D2,-(A7)
+       clr.w   D0
+       swap    D0
+       divu    D1,D0
+       move.w  D0,D2
+       move.w  (A7)+,D0
+       divu    D1,D0
+       swap    D0
+       clr.l   D1
+       move.w  D0,D1
+       move.w  D2,D0
+       swap    D0
+       move.w  (A7)+,D2
+       rts
+dodiv_2:
+       movem.l D2/D3/D4,-(A7)
+       move.l  D1,D2
+       clr.w   D2
+       swap    D2
+       addq.l  #1,D2
+       move.l  D0,D3
+       move.l  D1,D4
+       move.l  D2,D1
+       bsr.s   dodiv_1
+       move.l  D4,D1
+       divu    D2,D1
+       divu    D1,D0
+       andi.l  #$FFFF,D0
+dodiv_3:
+       move.l  D4,D1
+       move.l  D4,D2
+       swap    D2
+       mulu    D0,D1
+       mulu    D0,D2
+       swap    D2
+       add.l   D2,D1
+       sub.l   D3,D1
+       bhi.s   dodiv_4
+       neg.l   D1
+       cmp.l   D1,D4
+       bhi.s   dodiv_5
+       addq.l  #1,D0
+       bra.s   dodiv_3
+dodiv_4:
+       subq.l  #1,D0
+       bra.s   dodiv_3
+dodiv_5:
+       movem.l (A7)+,D2/D3/D4
+       rts
 _printf:
        link      A6,#-4
        move.l    D2,-(A7)
@@ -2110,119 +3131,29 @@ strcpy_1:
        move.b    (A1)+,(A0)+
        bne.s     strcpy_1
        rts
-ULDIV:
-       link    A6,#0
-       movem.l D0/D1,-(A7)
-       move.l  8(A6),D1
-       move.l  12(A6),D0
-       bra.s   ldiv_3
-LDIV:
-       link    A6,#0
-       movem.l D0/D1,-(A7)
-       move.l  8(A6),D1
-       move.l  12(A6),D0
-       tst.l   D0
-       bpl.s   ldiv_1
-       neg.l   D0
-       tst.l   D1
-       bpl.s   ldiv_2
-       neg.l   D1
-       bsr.s   dodiv
-       neg.l   D1
-       bra.s   ldiv_4
-ldiv_1:
-       tst.l   D1
-       bpl.s   ldiv_3
-       neg.l   D1
-       bsr.s   dodiv
-       neg.l   D0
-       bra.s   ldiv_4
-ldiv_2:
-       bsr.s   dodiv
-       neg.l   D0
-       neg.l   D1
-       bra.s   ldiv_4
-ldiv_3:
-       bsr.s   dodiv
-ldiv_4:
-       move.l  D0,8(A6)
-       move.l  D1,12(A6)
-       movem.l (A7)+,D0/D1
-       unlk    A6
-       rts
-dodiv:
-       cmpi.l  #$FFFF,D1
-       bhi.s   dodiv_2
-       cmpi.l  #$FFFF,D0
-       bhi.s   dodiv_1
-       divu    D1,D0
-       move.l  D0,D1
-       clr.w   D1
-       swap    D1
-       andi.l  #$FFFF,D0
-       rts
-dodiv_1:
-       movem.w D0/D2,-(A7)
-       clr.w   D0
-       swap    D0
-       divu    D1,D0
-       move.w  D0,D2
-       move.w  (A7)+,D0
-       divu    D1,D0
-       swap    D0
-       clr.l   D1
-       move.w  D0,D1
-       move.w  D2,D0
-       swap    D0
-       move.w  (A7)+,D2
-       rts
-dodiv_2:
-       movem.l D2/D3/D4,-(A7)
-       move.l  D1,D2
-       clr.w   D2
-       swap    D2
-       addq.l  #1,D2
-       move.l  D0,D3
-       move.l  D1,D4
-       move.l  D2,D1
-       bsr.s   dodiv_1
-       move.l  D4,D1
-       divu    D2,D1
-       divu    D1,D0
-       andi.l  #$FFFF,D0
-dodiv_3:
-       move.l  D4,D1
-       move.l  D4,D2
-       swap    D2
-       mulu    D0,D1
-       mulu    D0,D2
-       swap    D2
-       add.l   D2,D1
-       sub.l   D3,D1
-       bhi.s   dodiv_4
-       neg.l   D1
-       cmp.l   D1,D4
-       bhi.s   dodiv_5
-       addq.l  #1,D0
-       bra.s   dodiv_3
-dodiv_4:
-       subq.l  #1,D0
-       bra.s   dodiv_3
-dodiv_5:
-       movem.l (A7)+,D2/D3/D4
-       rts
        section   const
                 align
 
 
 @iic_dr~1_1:
-       dc.b      13,10,67,104,101,99,107,105,110,103,32,105,102
-       dc.b      32,105,110,116,101,114,110,97,108,32,119,114
-       dc.b      105,116,101,32,105,115,32,100,111,110,101,46
-       dc.b      46,46,0
+       dc.b      13,10,69,110,116,101,114,101,100,32,70,105,114
+       dc.b      115,116,32,66,108,111,99,107,32,76,111,111,112
+       dc.b      0
 @iic_dr~1_2:
-       dc.b      13,10,83,116,97,116,117,115,32,82,69,103,58
+       dc.b      13,10,32,69,110,116,101,114,101,100,32,73,110
+       dc.b      116,101,114,109,101,100,105,97,116,101,32,76
+       dc.b      111,111,112,0
+@iic_dr~1_3:
+       dc.b      13,10,32,67,117,114,114,101,110,116,32,65,100
+       dc.b      100,114,101,115,115,32,73,110,100,101,120,58
        dc.b      32,37,120,0
+@iic_dr~1_4:
+       dc.b      13,10,32,69,110,116,101,114,101,100,32,76,97
+       dc.b      115,116,32,66,108,111,99,107,32,76,111,111,112
+       dc.b      0
+@iic_dr~1_5:
+       dc.b      13,10,32,69,120,105,116,101,100,32,65,108,108
+       dc.b      32,76,111,111,112,115,0
 @m68kus~1_1:
        dc.b      13,10,73,110,105,116,105,97,108,105,122,105
        dc.b      110,103,32,73,73,67,32,67,111,110,116,114,111
@@ -2232,12 +3163,12 @@ dodiv_5:
        dc.b      97,108,105,122,97,116,105,111,110,44,32,115
        dc.b      101,110,100,105,110,103,32,97,32,98,121,116
        dc.b      101,46,46,46,0
-@m68kus~1_3:
-       dc.b      13,10,68,111,110,101,32,119,114,105,116,105
-       dc.b      110,103,33,0
-@m68kus~1_4:
-       dc.b      13,10,82,101,97,100,32,98,97,99,107,32,37,120
-       dc.b      33,0
+@adc_dac_1:
+       dc.b      13,10,32,71,101,110,101,114,97,116,101,100,32
+       dc.b      83,116,97,114,116,32,83,105,103,110,97,108,0
+@adc_dac_2:
+       dc.b      13,10,32,83,101,110,116,32,67,111,110,116,114
+       dc.b      111,108,32,66,121,116,101,0
 @itoa_1:
        dc.b      45,50,49,52,55,52,56,51,54,52,56,0
 __ctype:
@@ -2284,6 +3215,12 @@ _IICRx:
 _IICStatus:
        dc.l      4227080
 _IICCommand:
+       dc.l      4227080
+_IICTx_:
+       dc.l      4227078
+_IICRx_:
+       dc.l      4227078
+_IICCommand_:
        dc.l      4227080
        section   bss
                 align

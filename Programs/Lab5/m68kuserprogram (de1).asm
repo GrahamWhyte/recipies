@@ -3,6 +3,7 @@
 ; #include <string.h>
 ; #include <ctype.h>
 ; #include "IIC_Driver.h"
+; #include "ADC_DAC.h"
 ; //IMPORTANT
 ; //
 ; // Uncomment one of the two #defines below
@@ -859,46 +860,88 @@ _endTimer:
 ; {
        xdef      _main
 _main:
-       link      A6,#-4
-       move.l    A2,-(A7)
-       lea       _printf.L,A2
+       link      A6,#-1040
+       move.l    D2,-(A7)
+; unsigned char iicArray[512]; 
+; unsigned char readBuffer[512]; 
 ; unsigned char temp;
+; unsigned int address; 
+; unsigned int startingAddress = 0x40; 
+       move.l    #64,-8(A6)
+; int i; 
+; int length = 500; 
+       move.l    #500,-4(A6)
+; // Populate test array 
+; for (i=0; i<length; i++)
+       clr.l     D2
+main_1:
+       cmp.l     -4(A6),D2
+       bge.s     main_3
+; {
+; iicArray[i] = 0xFF; 
+       lea       -1038(A6),A0
+       move.b    #255,0(A0,D2.L)
+       addq.l    #1,D2
+       bra       main_1
+main_3:
+; }
 ; printf("\r\nInitializing IIC Controller");
        pea       @m68kus~1_1.L
-       jsr       (A2)
+       jsr       _printf
        addq.w    #4,A7
 ; Init_IIC();
        jsr       _Init_IIC
 ; printf("\r\nDone initialization, sending a byte...");
        pea       @m68kus~1_2.L
-       jsr       (A2)
+       jsr       _printf
        addq.w    #4,A7
-; WriteByte(0xA6, 0x42, (unsigned int)0x55);
-       pea       85
-       pea       66
-       pea       166
-       jsr       _WriteByte
+; // WriteByte(0xA6, 0x42, (unsigned int)0x55);
+; // printf("\r\nDone writing!");
+; // temp = ReadByte(0xA6, (unsigned int)0x55);
+; // printf("\r\nRead back %x!", temp);
+; // Write_128_Bytes(0xA6, 0x00, iicArray); 
+; // temp = ReadByte(0xA6, 0x00);
+; // printf("\r\nRead back %x!", temp);
+; // temp = ReadByte(0xA6, 0x05);
+; // printf("\r\nRead back %x!", temp);
+; // temp = ReadByte(0xA6, 0x7F);
+; // printf("\r\nRead back %x!", temp);
+; // Read_128_Bytes(0xA6, 0x00, readBuffer); 
+; // for (i=0; i<128; i++)
+; // {
+; //     printf("\r\nRead back %x!", readBuffer[i]);
+; // }
+; /**********************************************
+; * Testing Read/Write Bytes functions
+; **********************************************/
+; // WriteBytes(0xA6, startingAddress, iicArray, length); 
+; // ReadBytes(0xA6, startingAddress, readBuffer, length); 
+; // for (i=0; i<length; i++)
+; // {
+; //     printf("\r\nRead back %x from %x!", readBuffer[i], startingAddress+i);
+; // }
+; // temp = ReadByte(0xA6, 0x40);
+; // printf("\r\nRead back %x!", temp);
+; // temp = ReadByte(0xA6, 0x7f);
+; // printf("\r\nRead back %x!", temp);
+; // temp = ReadByte(0xA6, 0x80);
+; // printf("\r\nRead back %x!", temp);
+; // temp = ReadByte(0xA6, 0x81);
+; // printf("\r\nRead back %x!", temp);
+; // for (address = startingAddress; address < startingAddress+length; address++)
+; // {
+; //     temp = ReadByte(0xA6, address);
+; //     printf("\r\nRead back %x from %x!", temp, address);
+; // }
+; DigitalToAnalog(ADC_SLAVE_ADDRESS, iicArray, sizeof(iicArray)); 
+       pea       512
+       pea       -1038(A6)
+       pea       158
+       jsr       _DigitalToAnalog
        add.w     #12,A7
-; printf("\r\nDone writing!");
-       pea       @m68kus~1_3.L
-       jsr       (A2)
-       addq.w    #4,A7
-; temp = ReadByte(0xA6, (unsigned int)0x55);
-       pea       85
-       pea       166
-       jsr       _ReadByte
-       addq.w    #8,A7
-       move.b    D0,-1(A6)
-; printf("\r\nRead back %x!", temp);
-       move.b    -1(A6),D1
-       and.l     #255,D1
-       move.l    D1,-(A7)
-       pea       @m68kus~1_4.L
-       jsr       (A2)
-       addq.w    #8,A7
 ; while(1);
-main_1:
-       bra       main_1
+main_4:
+       bra       main_4
 ; }
        section   const
 @m68kus~1_1:
@@ -910,12 +953,6 @@ main_1:
        dc.b      97,108,105,122,97,116,105,111,110,44,32,115
        dc.b      101,110,100,105,110,103,32,97,32,98,121,116
        dc.b      101,46,46,46,0
-@m68kus~1_3:
-       dc.b      13,10,68,111,110,101,32,119,114,105,116,105
-       dc.b      110,103,33,0
-@m68kus~1_4:
-       dc.b      13,10,82,101,97,100,32,98,97,99,107,32,37,120
-       dc.b      33,0
        section   bss
        xdef      _x
 _x:
@@ -968,8 +1005,7 @@ _k:
        xdef      _sum
 _sum:
        ds.b      4
-       xref      _WriteByte
        xref      ULMUL
        xref      _Init_IIC
-       xref      _ReadByte
+       xref      _DigitalToAnalog
        xref      _printf
