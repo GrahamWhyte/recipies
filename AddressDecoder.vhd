@@ -56,6 +56,11 @@ Begin
 		if (Address(31 downto 26) = B"0000_10") then 
 			DramSelect_H <= '1'; 
 		end if ;
+		
+		-- Can Bus Address Decoding 
+		if (Address(31 downto 16) = B"0000_0000_0101_0000") then
+			CanBusSelect_H <= '1';
+		end if; 
 		---------------------------------------------------------------------------------
 		-- add other decoder signals here as we work through assignments and labs
 		---------------------------------------------------------------------------------
